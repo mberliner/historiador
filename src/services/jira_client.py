@@ -1,7 +1,7 @@
 import requests
 import json
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 from src.models.jira_models import UserStory, ProcessResult
 from src.config.settings import Settings
 
@@ -30,7 +30,7 @@ class JiraClient:
             logger.info("Conexión con Jira exitosa")
             return True
         except Exception as e:
-            logger.error(f"Error de conexión con Jira: {str(e)}")
+            logger.error("Error de conexión con Jira: %s", str(e))
             return False
     
     def validate_project(self, project_key: str) -> bool:
@@ -41,7 +41,7 @@ class JiraClient:
             return True
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
-                logger.error(f"Proyecto {project_key} no encontrado")
+                logger.error("Proyecto %s no encontrado", project_key)
                 return False
             raise
     
@@ -54,11 +54,12 @@ class JiraClient:
             if self.settings.subtask_issue_type in subtask_names:
                 return True
             else:
-                logger.error(f"Tipo de subtarea '{self.settings.subtask_issue_type}' no encontrado. Disponibles: {subtask_names}")
+                logger.error("Tipo de subtarea '%s' no encontrado. Disponibles: %s",
+                             self.settings.subtask_issue_type, subtask_names)
                 return False
                 
         except Exception as e:
-            logger.error(f"Error validando tipo de subtarea: {str(e)}")
+            logger.error("Error validando tipo de subtarea: %s", str(e))
             return False
     
     def validate_parent_issue(self, issue_key: str) -> bool:
@@ -72,14 +73,14 @@ class JiraClient:
             return True
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
-                logger.error(f"Issue padre {issue_key} no encontrado")
+                logger.error("Issue padre %s no encontrado", issue_key)
                 return False
             raise
     
     def create_user_story(self, story: UserStory, row_number: int = None) -> ProcessResult:
         """Crea una historia de usuario en Jira."""
         if self.settings.dry_run:
-            logger.info(f"[DRY RUN] Creando historia: {story.titulo}")
+            logger.info("[DRY RUN] Creando historia: %s", story.titulo)
             return ProcessResult(
                 success=True,
                 jira_key="DRY-RUN-123",
@@ -192,7 +193,7 @@ class JiraClient:
             result_data = response.json()
             story_key = result_data["key"]
             
-            logger.info(f"Historia creada exitosamente: {story_key}")
+            logger.info("Historia creada exitosamente: %s", story_key)
             
             # Crear subtareas si existen
             subtasks_created = 0
@@ -210,7 +211,8 @@ class JiraClient:
                     
                     try:
                         self._delete_issue(story_key)
-                        logger.warning(f"Historia {story_key} eliminada debido a fallo completo en subtareas")
+                        logger.warning("Historia %s eliminada debido a fallo completo en subtareas",
+                                       story_key)
                         return ProcessResult(
                             success=False,
                             error_message=f"Historia eliminada: fallaron todas las subtareas ({subtasks_failed}/{len(story.subtareas)})",
@@ -220,7 +222,8 @@ class JiraClient:
                             subtask_errors=subtask_errors
                         )
                     except Exception as e:
-                        logger.error(f"Error eliminando historia {story_key}: {str(e)}")
+                        logger.error("Error eliminando historia %s: %s",
+                                     story_key, str(e))
             
             return ProcessResult(
                 success=True,
@@ -236,12 +239,15 @@ class JiraClient:
             if hasattr(e, 'response') and e.response is not None:
                 try:
                     error_details = e.response.json()
-                    logger.error(f"Detalles del error: {json.dumps(error_details, indent=2)}")
-                    logger.error(f"Payload enviado: {json.dumps(issue_data, indent=2)}")
+                    logger.error("Detalles del error: %s",
+                                 json.dumps(error_details, indent=2))
+                    logger.error("Payload enviado: %s",
+                                 json.dumps(issue_data, indent=2))
                     error_msg += f" - Detalles: {error_details}"
                 except:
-                    logger.error(f"Response text: {e.response.text}")
-                    logger.error(f"Payload enviado: {json.dumps(issue_data, indent=2)}")
+                    logger.error("Response text: %s", e.response.text)
+                    logger.error("Payload enviado: %s",
+                                 json.dumps(issue_data, indent=2))
             logger.error(error_msg)
             return ProcessResult(
                 success=False,
@@ -251,14 +257,14 @@ class JiraClient:
         except Exception as e:
             error_msg = f"Error creando historia: {str(e)}"
             logger.error(error_msg)
-            logger.error(f"Payload enviado: {json.dumps(issue_data, indent=2)}")
+            logger.error("Payload enviado: %s", json.dumps(issue_data, indent=2))
             return ProcessResult(
                 success=False,
                 error_message=error_msg,
                 row_number=row_number
             )
     
-    def _create_subtasks(self, parent_key: str, subtasks: List[str]) -> tuple[int, int, List[str]]:
+    def _create_subtasks(self, parent_key: str, subtasks: List[str]) -> Tuple[int, int, List[str]]:
         """Crea subtareas para una historia de usuario.
         
         Returns:
@@ -297,7 +303,8 @@ class JiraClient:
                 response.raise_for_status()
                 
                 result_data = response.json()
-                logger.info(f"Subtarea creada: {result_data['key']} para {parent_key}")
+                logger.info("Subtarea creada: %s para %s",
+                            result_data['key'], parent_key)
                 created += 1
                 
             except requests.exceptions.HTTPError as e:
@@ -327,7 +334,7 @@ class JiraClient:
             response.raise_for_status()
             return True
         except Exception as e:
-            logger.error(f"Error eliminando issue {issue_key}: {str(e)}")
+            logger.error("Error eliminando issue %s: %s", issue_key, str(e))
             return False
     
     def get_issue_types(self) -> List[Dict[str, Any]]:
@@ -348,5 +355,5 @@ class JiraClient:
                 return []
                 
         except Exception as e:
-            logger.error(f"Error obteniendo tipos de issue: {str(e)}")
+            logger.error("Error obteniendo tipos de issue: %s", str(e))
             return []

@@ -1,11 +1,13 @@
-import click
+"""Aplicación principal para importar historias de usuario a Jira desde CSV/Excel."""
+import glob
 import logging
-import sys
-import shutil
 import os
+import shutil
+import sys
 from pathlib import Path
 from typing import List
-import glob
+
+import click
 
 # Agregar el directorio padre al path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -17,7 +19,12 @@ from src.models.jira_models import BatchResult, ProcessResult
 
 
 def setup_logging(settings: Settings, level: str = "INFO"):
-    """Configura el sistema de logging."""
+    """Configura el sistema de logging.
+    
+    Args:
+        settings: Configuración de la aplicación
+        level: Nivel de logging (DEBUG, INFO, WARNING, ERROR)
+    """
     # Crear directorio de logs si no existe
     logs_dir = Path(settings.logs_directory)
     logs_dir.mkdir(exist_ok=True)
@@ -35,7 +42,12 @@ def setup_logging(settings: Settings, level: str = "INFO"):
 
 
 def move_file_to_processed(file_path: str, settings: Settings) -> None:
-    """Mueve archivo procesado al directorio de procesados."""
+    """Mueve archivo procesado al directorio de procesados.
+    
+    Args:
+        file_path: Ruta del archivo a mover
+        settings: Configuración de la aplicación
+    """
     processed_dir = Path(settings.processed_directory)
     processed_dir.mkdir(exist_ok=True)
     
@@ -51,17 +63,24 @@ def move_file_to_processed(file_path: str, settings: Settings) -> None:
         dest_path = processed_dir / f"{stem}_{timestamp}{suffix}"
     
     shutil.move(str(source_path), str(dest_path))
-    logging.getLogger(__name__).info(f"Archivo movido a: {dest_path}")
+    logging.getLogger(__name__).info("Archivo movido a: %s", dest_path)
 
 
 def find_input_files(settings: Settings) -> List[str]:
-    """Encuentra todos los archivos CSV y Excel en el directorio de entrada."""
+    """Encuentra todos los archivos CSV y Excel en el directorio de entrada.
+    
+    Args:
+        settings: Configuración de la aplicación
+        
+    Returns:
+        Lista de rutas de archivos encontrados
+    """
     input_dir = Path(settings.input_directory)
     
     # Crear directorio de entrada si no existe
     if not input_dir.exists():
         input_dir.mkdir(parents=True, exist_ok=True)
-        logging.getLogger(__name__).info(f"Directorio de entrada creado: {input_dir}")
+        logging.getLogger(__name__).info("Directorio de entrada creado: %s", input_dir)
         return []
     
     patterns = ['*.csv', '*.xlsx', '*.xls']
@@ -81,7 +100,16 @@ def find_input_files(settings: Settings) -> List[str]:
 @click.option('--dry-run', is_flag=True, help='Modo de prueba sin crear issues')
 @click.pass_context
 def cli(ctx, log_level, file, project, batch_size, dry_run):
-    """Jira Batch Importer - Crea historias de usuario desde archivos Excel/CSV."""
+    """Jira Batch Importer - Crea historias de usuario desde archivos Excel/CSV.
+    
+    Args:
+        ctx: Contexto de click
+        log_level: Nivel de logging
+        file: Archivo específico a procesar
+        project: Clave del proyecto en Jira
+        batch_size: Tamaño del lote de procesamiento
+        dry_run: Modo de prueba sin crear issues
+    """
     ctx.ensure_object(dict)
     ctx.obj['log_level'] = log_level
     
@@ -97,7 +125,15 @@ def cli(ctx, log_level, file, project, batch_size, dry_run):
 @click.option('--dry-run', is_flag=True, help='Modo de prueba sin crear issues')
 @click.pass_context
 def process(ctx, file, project, batch_size, dry_run):
-    """Procesa archivo(s) y crea historias de usuario en Jira."""
+    """Procesa archivo(s) y crea historias de usuario en Jira.
+    
+    Args:
+        ctx: Contexto de click
+        file: Archivo específico a procesar
+        project: Clave del proyecto en Jira
+        batch_size: Tamaño del lote de procesamiento
+        dry_run: Modo de prueba sin crear issues
+    """
     # Cargar configuración
     settings = Settings()
     if project:
@@ -114,16 +150,16 @@ def process(ctx, file, project, batch_size, dry_run):
         # Determinar archivos a procesar
         if file:
             files_to_process = [file]
-            logger.info(f"Procesando archivo específico: {file}")
+            logger.info("Procesando archivo específico: %s", file)
         else:
             files_to_process = find_input_files(settings)
             if not files_to_process:
                 click.echo(f"No se encontraron archivos CSV/Excel en {settings.input_directory}")
                 return
-            logger.info(f"Procesando {len(files_to_process)} archivos automáticamente")
+            logger.info("Procesando %d archivos automáticamente", len(files_to_process))
         
-        logger.info(f"Proyecto: {settings.project_key}")
-        logger.info(f"Modo dry-run: {settings.dry_run}")
+        logger.info("Proyecto: %s", settings.project_key)
+        logger.info("Modo dry-run: %s", settings.dry_run)
         
         # Inicializar servicios
         file_processor = FileProcessor()
@@ -210,18 +246,18 @@ def process(ctx, file, project, batch_size, dry_run):
                             click.echo(f"  • {error}")
                 
                 overall_results.extend(results)
-                logger.info(f"Archivo completado: {batch_result.successful}/{batch_result.total_processed} exitosas")
+                logger.info("Archivo completado: %d/%d exitosas", batch_result.successful, batch_result.total_processed)
                 
                 # Mover archivo a procesados si el procesamiento fue exitoso
                 if batch_result.successful > 0:
                     move_file_to_processed(current_file, settings)
                     click.echo(f"[OK] Archivo movido a directorio de procesados")
                 else:
-                    logger.warning(f"Archivo no movido debido a fallos: {current_file}")
+                    logger.warning("Archivo no movido debido a fallos: %s", current_file)
                     click.echo(f"[WARNING] Archivo no movido debido a fallos")
                     
             except Exception as e:
-                logger.error(f"Error procesando archivo {current_file}: {str(e)}")
+                logger.error("Error procesando archivo %s: %s", current_file, str(e))
                 click.echo(f"[ERROR] Error en archivo {Path(current_file).name}: {str(e)}", err=True)
                 continue
         
@@ -242,10 +278,10 @@ def process(ctx, file, project, batch_size, dry_run):
             click.echo(f"Total exitosas: {overall_batch_result.successful}")
             click.echo(f"Total fallidas: {overall_batch_result.failed}")
             
-            logger.info(f"Procesamiento general completado. {overall_batch_result.successful}/{overall_batch_result.total_processed} exitosas en {total_files} archivos")
+            logger.info("Procesamiento general completado. %d/%d exitosas en %d archivos", overall_batch_result.successful, overall_batch_result.total_processed, total_files)
         
     except Exception as e:
-        logger.error(f"Error durante el procesamiento: {str(e)}")
+        logger.error("Error durante el procesamiento: %s", str(e))
         click.echo(f"Error: {str(e)}", err=True)
         sys.exit(1)
 
@@ -254,7 +290,12 @@ def process(ctx, file, project, batch_size, dry_run):
 @click.option('--file', '-f', required=True, help='Archivo Excel o CSV a validar')
 @click.option('--rows', '-r', default=5, help='Número de filas a mostrar en preview')
 def validate(file, rows):
-    """Valida el formato del archivo sin crear issues."""
+    """Valida el formato del archivo sin crear issues.
+    
+    Args:
+        file: Ruta del archivo a validar
+        rows: Número de filas a mostrar en preview
+    """
     logger = logging.getLogger(__name__)
     
     try:
@@ -299,7 +340,7 @@ def validate(file, rows):
             click.echo("    (vacías o >255 caracteres)", err=True)
         
     except Exception as e:
-        logger.error(f"Error en validación: {str(e)}")
+        logger.error("Error en validación: %s", str(e))
         click.echo(f"Error: {str(e)}", err=True)
         sys.exit(1)
 

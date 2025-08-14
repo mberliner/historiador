@@ -1,16 +1,33 @@
+"""Modelos de datos para historias de usuario y resultados de procesamiento."""
+from typing import List, Optional
+
 from pydantic import BaseModel, Field, validator
-from typing import Optional, List
 
 
 class UserStory(BaseModel):
-    titulo: str = Field(..., min_length=1, max_length=255, description="Título de la historia de usuario")
-    descripcion: str = Field(..., min_length=1, description="Descripción detallada de la historia")
-    criterio_aceptacion: str = Field(..., min_length=1, description="Criterios de aceptación")
-    subtareas: Optional[List[str]] = Field(default=None, description="Lista de subtareas separadas por ;")
-    parent: Optional[str] = Field(default=None, description="Key del Epic o Feature padre")
+    """Modelo para una historia de usuario con validación."""
+    titulo: str = Field(
+        ..., min_length=1, max_length=255,
+        description="Título de la historia de usuario")
+    descripcion: str = Field(
+        ..., min_length=1, description="Descripción detallada de la historia")
+    criterio_aceptacion: str = Field(
+        ..., min_length=1, description="Criterios de aceptación")
+    subtareas: Optional[List[str]] = Field(
+        default=None, description="Lista de subtareas separadas por ;")
+    parent: Optional[str] = Field(
+        default=None, description="Key del Epic o Feature padre")
     
     @validator('subtareas', pre=True)
     def parse_subtareas(cls, v):
+        """Procesa el campo subtareas dividiéndolo por ; y \n.
+        
+        Args:
+            v: Valor del campo subtareas
+            
+        Returns:
+            Lista de subtareas o None
+        """
         if v is None or v == '':
             return None
         if isinstance(v, str):
@@ -26,6 +43,7 @@ class UserStory(BaseModel):
 
 
 class ProcessResult(BaseModel):
+    """Resultado del procesamiento de una historia de usuario."""
     success: bool
     jira_key: Optional[str] = None
     error_message: Optional[str] = None
@@ -36,6 +54,7 @@ class ProcessResult(BaseModel):
 
 
 class BatchResult(BaseModel):
+    """Resultado del procesamiento de un lote de historias."""
     total_processed: int
     successful: int
     failed: int
