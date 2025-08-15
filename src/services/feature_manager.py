@@ -378,9 +378,9 @@ class FeatureManager:
                 logger.debug("Usando parent existente: %s", parent_text)
                 return parent_text, False
             else:
-                # Key no existe, intentar crear feature con la key como descripción
-                logger.warning("Key %s no existe, creando feature con ese texto", parent_text)
-                # Continuar al caso 2 usando parent_text como descripción
+                # Key no existe - FALLAR en lugar de crear feature
+                logger.error("Key de Jira %s no existe y no se puede crear feature con formato de key", parent_text)
+                return None, False
         
         # Caso 2: Es descripción de feature (o key inexistente)
         normalized_desc = self._normalize_description(parent_text)
