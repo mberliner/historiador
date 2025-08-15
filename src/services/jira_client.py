@@ -2,8 +2,9 @@ import requests
 import json
 import logging
 from typing import Optional, Dict, Any, List, Tuple
-from src.models.jira_models import UserStory, ProcessResult
+from src.models.jira_models import UserStory, ProcessResult, FeatureResult
 from src.config.settings import Settings
+from src.services.feature_manager import FeatureManager
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,7 @@ class JiraClient:
             'Accept': 'application/json',
             'Content-Type': 'application/json'
         })
+        self.feature_manager = FeatureManager(settings, self.session)
     
     def test_connection(self) -> bool:
         """Prueba la conexión con Jira."""
@@ -62,6 +64,10 @@ class JiraClient:
             logger.error("Error validando tipo de subtarea: %s", str(e))
             return False
     
+    def validate_feature_issue_type(self) -> bool:
+        """Valida que el tipo de issue para features existe en el proyecto."""
+        return self.feature_manager.validate_feature_type()
+    
     def validate_parent_issue(self, issue_key: str) -> bool:
         """Valida que el issue padre (Epic/Feature) existe."""
         if not issue_key:
@@ -88,13 +94,18 @@ class JiraClient:
             )
         
         try:
-            # Validar parent si existe
-            if story.parent and not self.validate_parent_issue(story.parent):
-                return ProcessResult(
-                    success=False,
-                    error_message=f"Issue padre {story.parent} no existe",
-                    row_number=row_number
-                )
+            # Procesar parent (crear feature si es necesario o validar si es key existente)
+            parent_key = None
+            feature_created = False
+            
+            if story.parent:
+                parent_key, feature_created = self.feature_manager.get_or_create_parent(story.parent)
+                if not parent_key:
+                    return ProcessResult(
+                        success=False,
+                        error_message=f"Error procesando parent: {story.parent}",
+                        row_number=row_number
+                    )
             
             # Preparar descripción con criterios de aceptación si no hay campo personalizado
             description_content = [{
@@ -180,8 +191,8 @@ class JiraClient:
                 }
             
             # Vincular con parent si existe
-            if story.parent:
-                issue_data["fields"]["parent"] = {"key": story.parent}
+            if parent_key:
+                issue_data["fields"]["parent"] = {"key": parent_key}
             
             # Crear historia
             response = self.session.post(
@@ -193,7 +204,10 @@ class JiraClient:
             result_data = response.json()
             story_key = result_data["key"]
             
-            logger.info("Historia creada exitosamente: %s", story_key)
+            if feature_created:
+                logger.info("Historia creada exitosamente: %s (con nueva feature: %s)", story_key, parent_key)
+            else:
+                logger.info("Historia creada exitosamente: %s", story_key)
             
             # Crear subtareas si existen
             subtasks_created = 0
@@ -225,13 +239,23 @@ class JiraClient:
                         logger.error("Error eliminando historia %s: %s",
                                      story_key, str(e))
             
+            # Preparar información de feature si se creó/utilizó
+            feature_info = None
+            if parent_key and story.parent:
+                feature_info = FeatureResult(
+                    feature_key=parent_key,
+                    was_created=feature_created,
+                    original_text=story.parent
+                )
+            
             return ProcessResult(
                 success=True,
                 jira_key=story_key,
                 row_number=row_number,
                 subtasks_created=subtasks_created,
                 subtasks_failed=subtasks_failed,
-                subtask_errors=subtask_errors if subtask_errors else None
+                subtask_errors=subtask_errors if subtask_errors else None,
+                feature_info=feature_info
             )
             
         except requests.exceptions.HTTPError as e:

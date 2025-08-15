@@ -42,6 +42,13 @@ class UserStory(BaseModel):
         return v
 
 
+class FeatureResult(BaseModel):
+    """Resultado del procesamiento de una feature/parent."""
+    feature_key: str
+    was_created: bool
+    original_text: str
+
+
 class ProcessResult(BaseModel):
     """Resultado del procesamiento de una historia de usuario."""
     success: bool
@@ -51,6 +58,7 @@ class ProcessResult(BaseModel):
     subtasks_created: int = 0
     subtasks_failed: int = 0
     subtask_errors: Optional[List[str]] = None
+    feature_info: Optional[FeatureResult] = None
 
 
 class BatchResult(BaseModel):

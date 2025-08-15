@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     rollback_on_subtask_failure: bool = Field(
         default=False,
         description="Eliminar historia si fallan todas las subtareas")
+    feature_issue_type: str = Field(
+        default="Feature", 
+        description="Tipo de issue para features/epics creados automáticamente")
+    feature_required_fields: Optional[str] = Field(
+        default=None,
+        description="Campos obligatorios adicionales para features en formato JSON")
 
     class Config:
         """Configuración de pydantic."""

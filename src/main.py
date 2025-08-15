@@ -184,6 +184,16 @@ def process(ctx, file, project, batch_size, dry_run):
             if has_subtasks and not jira_client.validate_subtask_issue_type(settings.project_key):
                 click.echo(f"Error: Tipo de subtarea '{settings.subtask_issue_type}' no válido", err=True)
                 sys.exit(1)
+            
+            # Verificar si hay parents y validar tipo de feature
+            has_parents = any(
+                any(story.parent for story in file_processor.process_file(f))
+                for f in files_to_process
+            )
+            
+            if has_parents and not jira_client.validate_feature_issue_type():
+                click.echo(f"Error: Tipo de feature '{settings.feature_issue_type}' no válido", err=True)
+                sys.exit(1)
         
         # Procesar cada archivo
         total_files = len(files_to_process)
@@ -207,10 +217,18 @@ def process(ctx, file, project, batch_size, dry_run):
                     
                     if result.success:
                         click.echo(f"[OK] Fila {row_number}: {result.jira_key} - {story.titulo}")
+                        
+                        # Mostrar información de feature si se creó/utilizó
+                        if result.feature_info:
+                            if result.feature_info.was_created:
+                                click.echo(f"    + Feature creada: {result.feature_info.feature_key}")
+                            else:
+                                click.echo(f"    = Parent utilizado: {result.feature_info.feature_key}")
+                        
                         if result.subtasks_created > 0:
-                            click.echo(f"    ✓ {result.subtasks_created} subtarea(s) creada(s)")
+                            click.echo(f"    + {result.subtasks_created} subtarea(s) creada(s)")
                         if result.subtasks_failed > 0:
-                            click.echo(f"    ✗ {result.subtasks_failed} subtarea(s) fallaron", err=True)
+                            click.echo(f"    - {result.subtasks_failed} subtarea(s) fallaron", err=True)
                     else:
                         click.echo(f"[ERROR] Fila {row_number}: {result.error_message}", err=True)
                     
@@ -367,6 +385,82 @@ def test_connection():
     except Exception as e:
         click.echo(f"Error: {str(e)}", err=True)
         sys.exit(1)
+
+
+@cli.command()
+@click.option('--project', '-p', help='Key del proyecto (override settings)')
+def diagnose(project):
+    """Diagnostica configuración y campos obligatorios para features.
+    
+    Args:
+        project: Key del proyecto a diagnosticar
+    """
+    logger = logging.getLogger(__name__)
+    
+    try:
+        settings = Settings()
+        if project:
+            settings.project_key = project
+        
+        setup_logging(settings)
+        logger.info("Iniciando diagnóstico de features para proyecto: %s", settings.project_key)
+        
+        click.echo("="*60)
+        click.echo("DIAGNÓSTICO DE CONFIGURACIÓN PARA FEATURES")
+        click.echo("="*60)
+        
+        # Probar conexión
+        jira_client = JiraClient(settings)
+        if not jira_client.test_connection():
+            click.echo("Error de conexión con Jira", err=True)
+            sys.exit(1)
+        
+        click.echo("+ Conexión con Jira exitosa")
+        
+        # Validar proyecto
+        if not jira_client.validate_project(settings.project_key):
+            click.echo(f"Error: Proyecto {settings.project_key} no encontrado", err=True)
+            sys.exit(1)
+        
+        click.echo(f"+ Proyecto {settings.project_key} válido")
+        
+        # Validar tipo de feature
+        if not jira_client.validate_feature_issue_type():
+            click.echo(f"Error: Tipo de feature '{settings.feature_issue_type}' no válido", err=True)
+            sys.exit(1)
+        
+        click.echo(f"+ Tipo de feature '{settings.feature_issue_type}' válido")
+        
+        # Obtener campos obligatorios
+        click.echo(f"\nAnalizando campos obligatorios para '{settings.feature_issue_type}'...")
+        required_fields = jira_client.feature_manager.get_required_fields_for_feature()
+        
+        if required_fields:
+            click.echo(f"\nCAMPOS OBLIGATORIOS ENCONTRADOS:")
+            for field_id, field_value in required_fields.items():
+                click.echo(f"   * {field_id}: {field_value}")
+            
+            # Generar configuración sugerida
+            import json
+            click.echo(f"\nCONFIGURACIÓN SUGERIDA PARA .env:")
+            click.echo(f"FEATURE_REQUIRED_FIELDS='{json.dumps(required_fields)}'")
+            
+            click.echo(f"\nNOTA: Revisa los logs para ver todos los valores disponibles")
+            click.echo(f"      y cambiar IDs si el valor por defecto no es apropiado")
+            
+        else:
+            click.echo("+ No se encontraron campos obligatorios adicionales")
+        
+        # Configuración actual
+        click.echo(f"\nCONFIGURACIÓN ACTUAL:")
+        click.echo(f"   FEATURE_ISSUE_TYPE: {settings.feature_issue_type}")
+        click.echo(f"   FEATURE_REQUIRED_FIELDS: {settings.feature_required_fields or 'No configurado'}")
+        
+        click.echo(f"\nDiagnóstico completado")
+        
+    except Exception as e:
+        logger.error("Error durante el diagnóstico: %s", str(e))
+        click.echo(f"Error: {str(e)}", err=True)
 
 
 if __name__ == '__main__':
