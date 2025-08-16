@@ -20,6 +20,8 @@ class FeatureManager:
         self._feature_cache: Dict[str, str] = {}  # normalized_description -> feature_key
         # Pattern para detectar keys de Jira (ej: PROJ-123)
         self._jira_key_pattern = re.compile(r'^[A-Z][A-Z0-9]*-\d+$')
+        # Campo Epic Name (se detecta automáticamente)
+        self._epic_name_field_id: Optional[str] = None
 
     def is_jira_key(self, text: str) -> bool:
         """Determina si el texto es una key de Jira válida.
@@ -116,16 +118,25 @@ class FeatureManager:
             fields = issuetype.get("fields", {})
 
             required_fields = {}
+            epic_name_field_id = None
+
             for field_id, field_info in fields.items():
+                field_name = field_info.get("name", field_id).lower()
+                
+                # Detectar campo Epic Name
+                if "epic" in field_name and "name" in field_name:
+                    epic_name_field_id = field_id
+                    logger.info("Campo Epic Name detectado: %s (%s)", field_info.get("name", field_id), field_id)
+
                 if field_info.get("required", False):
                     # Campos básicos ya manejados
                     if field_id in ["project", "summary", "issuetype", "description"]:
                         continue
 
-                    field_name = field_info.get("name", field_id)
+                    field_name_display = field_info.get("name", field_id)
                     allowed_values = field_info.get("allowedValues", [])
 
-                    logger.info("Campo obligatorio encontrado: %s (%s)", field_name, field_id)
+                    logger.info("Campo obligatorio encontrado: %s (%s)", field_name_display, field_id)
 
                     # Mostrar todos los valores disponibles
                     if allowed_values and len(allowed_values) > 0:
@@ -150,6 +161,13 @@ class FeatureManager:
 
                         default_display = default_value.get("value", default_value.get("name", str(default_value)))
                         logger.info("  Valor sugerido por defecto: %s", default_display)
+
+            # Guardar el Epic Name field ID para uso posterior
+            if epic_name_field_id:
+                self._epic_name_field_id = epic_name_field_id
+            else:
+                logger.warning("No se encontró campo Epic Name en el tipo de issue %s", feature_type)
+                self._epic_name_field_id = None
 
             return required_fields
 
@@ -321,10 +339,19 @@ class FeatureManager:
             if not additional_fields:
                 additional_fields = self.get_required_fields_for_feature()
                 logger.debug("Campos obligatorios detectados automáticamente: %s", additional_fields)
+            
+            # Si no se ha detectado el Epic Name aún, intentar detectarlo
+            elif self._epic_name_field_id is None:
+                self.get_required_fields_for_feature()  # Ejecutar para detectar Epic Name
 
             # Aplicar campos adicionales
             if additional_fields:
                 feature_data["fields"].update(additional_fields)
+
+            # Asignar Epic Name si se detectó el campo
+            if self._epic_name_field_id:
+                feature_data["fields"][self._epic_name_field_id] = title
+                logger.debug("Asignando Epic Name: %s = %s", self._epic_name_field_id, title)
 
             # Crear feature
             response = self.session.post(
