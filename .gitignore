@@ -16,37 +16,62 @@ parts/
 sdist/
 var/
 wheels/
-share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
 MANIFEST
 
-# PyInstaller
-*.manifest
-*.spec
+# Testing
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.pytest_cache/
+.cache
 
-# Environment variables
+# Environment
 .env
-.env.local
-.env.production
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
 
-# IDE
+# IDEs
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
 # OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# Logs
+# Project specific
 logs/
+procesados/
+entrada/*.csv
+entrada/*.xlsx
+entrada/*.xls
+
+# Keep example files but ignore actual data
+!entrada/ejemplo_*.csv
+!entrada/ejemplo_*.xlsx
+
+# Temporary files
+*.tmp
+*.bak
 *.log
 
-# Archivos procesados (opcional - comentar si quieres versionarlos)
-procesados/
+# PyInstaller
+*.spec
 
-# Archivos temporales
-entrada/*.tmp
+# Distribution
+dist/
