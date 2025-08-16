@@ -5,9 +5,12 @@ from typing import Dict, Any, List, Tuple
 
 import requests
 
-from src.models.jira_models import UserStory, ProcessResult, FeatureResult
-from src.config.settings import Settings
-from src.services.feature_manager import FeatureManager
+from src.domain.entities.user_story import UserStory
+from src.domain.entities.process_result import ProcessResult
+from src.domain.entities.feature_result import FeatureResult
+from src.infrastructure.settings import Settings
+from src.infrastructure.jira.feature_manager import FeatureManager
+from src.infrastructure.jira import utils as jira_utils
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +61,7 @@ class JiraClient:
 
             if self.settings.subtask_issue_type in subtask_names:
                 return True
-            
+
             logger.error("Tipo de subtarea '%s' no encontrado. Disponibles: %s",
                          self.settings.subtask_issue_type, subtask_names)
             return False
@@ -73,27 +76,41 @@ class JiraClient:
 
     def validate_parent_issue(self, issue_key: str) -> bool:
         """Valida que el issue padre (Epic/Feature) existe."""
-        if not issue_key:
-            return True
-
-        try:
-            response = self.session.get(f"{self.base_url}/rest/api/3/issue/{issue_key}")
-            response.raise_for_status()
-            return True
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 404:
-                logger.error("Issue padre %s no encontrado", issue_key)
-                return False
-            raise
+        return jira_utils.validate_issue_exists(self.session, self.base_url, issue_key)
 
     def create_user_story(self, story: UserStory, row_number: int = None) -> ProcessResult:
         """Crea una historia de usuario en Jira."""
         if self.settings.dry_run:
             logger.info("[DRY RUN] Creando historia: %s", story.titulo)
+
+            # Simular información de subtareas
+            subtasks_count = len(story.subtareas) if story.subtareas else 0
+
+            # Simular información de feature/parent
+            feature_info = None
+            if story.parent:
+                # Simular si es key existente o descripción de feature
+                if self.feature_manager.is_jira_key(story.parent):
+                    feature_info = FeatureResult(
+                        feature_key=story.parent,
+                        was_created=False,
+                        original_text=story.parent
+                    )
+                else:
+                    # Simular creación de feature
+                    feature_info = FeatureResult(
+                        feature_key=f"DRY-FEATURE-{hash(story.parent) % 1000}",
+                        was_created=True,
+                        original_text=story.parent
+                    )
+
             return ProcessResult(
                 success=True,
-                jira_key="DRY-RUN-123",
-                row_number=row_number
+                jira_key=f"DRY-RUN-{row_number or 1}",
+                row_number=row_number,
+                subtasks_created=subtasks_count,
+                subtasks_failed=0,
+                feature_info=feature_info
             )
 
         try:
@@ -366,21 +383,4 @@ class JiraClient:
 
     def get_issue_types(self) -> List[Dict[str, Any]]:
         """Obtiene los tipos de issue disponibles en el proyecto."""
-        try:
-            # Usar el endpoint correcto para obtener metadata del proyecto
-            url = f"{self.base_url}/rest/api/3/issue/createmeta"
-            params = f"projectKeys={self.settings.project_key}&expand=projects.issuetypes"
-            response = self.session.get(f"{url}?{params}")
-            response.raise_for_status()
-            data = response.json()
-
-            # Extraer tipos de issue del proyecto
-            if data.get("projects") and len(data["projects"]) > 0:
-                return data["projects"][0].get("issuetypes", [])
-            
-            logger.warning("No se encontraron proyectos en createmeta")
-            return []
-
-        except Exception as e:
-            logger.error("Error obteniendo tipos de issue: %s", str(e))
-            return []
+        return jira_utils.get_issue_types(self.session, self.base_url, self.settings.project_key)

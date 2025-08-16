@@ -1,11 +1,11 @@
-"""Modelos de datos para historias de usuario y resultados de procesamiento."""
+"""Entidad UserStory del dominio."""
 from typing import List, Optional
 
 from pydantic import BaseModel, Field, validator
 
 
 class UserStory(BaseModel):
-    """Modelo para una historia de usuario con validación."""
+    """Entidad de dominio para una historia de usuario."""
     titulo: str = Field(
         ..., min_length=1, max_length=255,
         description="Título de la historia de usuario")
@@ -40,30 +40,3 @@ class UserStory(BaseModel):
                         tasks.append(task.strip())
             return tasks if tasks else None
         return v
-
-
-class FeatureResult(BaseModel):
-    """Resultado del procesamiento de una feature/parent."""
-    feature_key: str
-    was_created: bool
-    original_text: str
-
-
-class ProcessResult(BaseModel):
-    """Resultado del procesamiento de una historia de usuario."""
-    success: bool
-    jira_key: Optional[str] = None
-    error_message: Optional[str] = None
-    row_number: Optional[int] = None
-    subtasks_created: int = 0
-    subtasks_failed: int = 0
-    subtask_errors: Optional[List[str]] = None
-    feature_info: Optional[FeatureResult] = None
-
-
-class BatchResult(BaseModel):
-    """Resultado del procesamiento de un lote de historias."""
-    total_processed: int
-    successful: int
-    failed: int
-    results: List[ProcessResult]
