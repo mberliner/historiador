@@ -5,7 +5,10 @@ Aplicación de línea de comandos que importa historias de usuario desde archivo
 
 ## Comandos Importantes
 ```bash
-# Ejecutar aplicación (procesamiento automático)
+# Ejecutar aplicación (preferido) para todos los archivos de entrada
+python src/main.py
+
+# Ejecutar aplicación (procesamiento automático para un proyecto especifico)
 python src/main.py -p PROJECT_KEY
 
 # Procesar archivo específico
@@ -14,10 +17,10 @@ python src/main.py process -f entrada/archivo.csv -p PROJECT_KEY
 # Validar archivo sin crear issues
 python src/main.py validate -f entrada/archivo.csv
 
-# Diagnosticar campos obligatorios para features
+# Diagnosticar campos obligatorios para features que existan en Jira
 python src/main.py diagnose -p PROJECT_KEY
 
-# Modo dry-run para pruebas
+# Modo dry-run para pruebas, no modifica en Jira
 python src/main.py -p PROJECT_KEY --dry-run
 
 # Generar ejecutable
@@ -40,11 +43,24 @@ python -m PyInstaller --onefile --name historiador --add-data ".env.example;." s
 5. `parent` (opcional) - Key existente (PROJ-123) o descripción para crear feature
 
 ## Arquitectura del Código
-- **main.py**: Aplicación principal con CLI usando Click
-- **file_processor.py**: Procesamiento de archivos CSV/Excel
-- **jira_client.py**: Interacción con API de Jira
-- **feature_manager.py**: Gestión de features/parents (creación automática y búsqueda)
-- **jira_models.py**: Modelos de datos con validación Pydantic
+El proyecto implementa **Clean Architecture** con separación en 4 capas:
+
+### Capa de Presentación (`src/presentation/`)
+- **cli/commands.py**: Comandos CLI extraídos usando Click
+- **formatters/output_formatter.py**: Formateo de salida y reportes
+- **main.py**: Punto de entrada minimalista (45 líneas)
+
+### Capa de Aplicación (`src/application/`)
+- **use_cases/**: Casos de uso de negocio (process_files, validate_file, etc.)
+- **interfaces/**: Protocolos y abstracciones para infraestructura
+
+### Capa de Dominio (`src/domain/`)
+- **entities/**: Modelos de datos puros (UserStory, ProcessResult, etc.)
+- **repositories/**: Interfaces de repositorios
+
+### Capa de Infraestructura (`src/infrastructure/`)
+- **jira/**: Implementaciones para API de Jira (jira_client, feature_manager, utils)
+- **file_system/**: Procesamiento de archivos CSV/Excel
 - **settings.py**: Configuración con variables de entorno
 
 ## Funcionalidades Implementadas
@@ -58,6 +74,7 @@ python -m PyInstaller --onefile --name historiador --add-data ".env.example;." s
 - ✅ Detección inteligente entre keys existentes y descripciones de features
 - ✅ Búsqueda de features existentes para evitar duplicados
 - ✅ Normalización de descripciones para comparación consistente
+- ✅ Refactorización Fase 1: Arquitectura limpia (Score PyLint: 7.92 → 8.64)
 
 ## Validaciones Implementadas
 - Existencia del tipo "Subtarea" en el proyecto Jira
@@ -92,16 +109,69 @@ ACCEPTANCE_CRITERIA_FIELD=customfield_10001
 - **Tipos de subtarea varían**: Verificar nombres exactos con el comando `validate`
 - **Error 400 "Campo X es obligatorio" al crear features**: Usar comando `diagnose` para detectar campos obligatorios automáticamente
 
+## Calidad de Código - PyLint
+Se aplican las siguientes consideraciones para mantener alta calidad:
+
+### Problemas Resueltos
+- **R0801 (código duplicado)**: Creación de `infrastructure/jira/utils.py` con utilidades compartidas
+- **C0413 (import después de código)**: Imports dinámicos necesarios por `sys.path.append`
+- **C0301 (línea muy larga)**: División de líneas largas con continuación
+- **W0291 (trailing whitespace)**: Eliminación de espacios al final de líneas
+
+### Configuraciones Especiales
+- **Imports dinámicos**: Se mantienen después de `sys.path.append` para evitar errores de ruta
+- **Límite de líneas**: 100 caracteres con flexibilidad para URLs y strings largos
+- **Métodos con muchos argumentos**: Justificados por APIs externas (Jira)
+
+### Comandos de Verificación
+```bash
+# Ejecutar PyLint completo
+pylint src/
+
+# Verificar archivo específico
+pylint src/main.py
+
+# Ver solo errores críticos
+pylint --errors-only src/
+```
+
 ## Estructura de Directorios
 ```
 historiador/
-├── entrada/          # Archivos CSV/Excel a procesar
-├── procesados/       # Archivos ya procesados exitosamente
-├── logs/            # Logs de ejecución (jira_batch.log)
+├── entrada/                           # Archivos CSV/Excel a procesar
+├── procesados/                        # Archivos ya procesados exitosamente
+├── logs/                             # Logs de ejecución (jira_batch.log)
 ├── src/
-│   ├── config/      # Configuración (settings.py)
-│   ├── models/      # Modelos de datos (jira_models.py)
-│   ├── services/    # Lógica de negocio (jira_client.py, feature_manager.py, file_processor.py)
-│   └── main.py      # Aplicación principal
-└── dist/            # Ejecutable generado con PyInstaller
+│   ├── presentation/                 # Capa de presentación
+│   │   ├── cli/                      # Comandos CLI
+│   │   │   └── commands.py
+│   │   └── formatters/               # Formateo de salida
+│   │       └── output_formatter.py
+│   ├── application/                  # Capa de aplicación
+│   │   ├── interfaces/               # Abstracciones
+│   │   │   ├── feature_manager.py
+│   │   │   ├── file_repository.py
+│   │   │   └── jira_repository.py
+│   │   └── use_cases/                # Casos de uso
+│   │       ├── diagnose_features.py
+│   │       ├── process_files.py
+│   │       ├── test_connection.py
+│   │       └── validate_file.py
+│   ├── domain/                       # Capa de dominio
+│   │   ├── entities/                 # Entidades puras
+│   │   │   ├── batch_result.py
+│   │   │   ├── feature_result.py
+│   │   │   ├── process_result.py
+│   │   │   └── user_story.py
+│   │   └── repositories/             # Interfaces de repositorios
+│   ├── infrastructure/               # Capa de infraestructura
+│   │   ├── file_system/              # Sistema de archivos
+│   │   │   └── file_processor.py
+│   │   ├── jira/                     # API de Jira
+│   │   │   ├── feature_manager.py
+│   │   │   ├── jira_client.py
+│   │   │   └── utils.py
+│   │   └── settings.py               # Configuración
+│   └── main.py                       # Punto de entrada (45 líneas)
+└── dist/                             # Ejecutable generado con PyInstaller
 ```
