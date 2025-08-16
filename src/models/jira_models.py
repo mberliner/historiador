@@ -17,14 +17,14 @@ class UserStory(BaseModel):
         default=None, description="Lista de subtareas separadas por ;")
     parent: Optional[str] = Field(
         default=None, description="Key del Epic o Feature padre")
-    
+
     @validator('subtareas', pre=True)
-    def parse_subtareas(cls, v):
+    def parse_subtareas(cls, v):  # pylint: disable=no-self-argument
         """Procesa el campo subtareas dividiéndolo por ; y \n.
-        
+
         Args:
             v: Valor del campo subtareas
-            
+
         Returns:
             Lista de subtareas o None
         """

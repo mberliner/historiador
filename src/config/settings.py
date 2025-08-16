@@ -36,7 +36,7 @@ class Settings(BaseSettings):
         default=False,
         description="Eliminar historia si fallan todas las subtareas")
     feature_issue_type: str = Field(
-        default="Feature", 
+        default="Feature",
         description="Tipo de issue para features/epics creados automáticamente")
     feature_required_fields: Optional[str] = Field(
         default=None,
