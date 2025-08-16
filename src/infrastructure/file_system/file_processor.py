@@ -5,7 +5,7 @@ from typing import Iterator
 
 import pandas as pd
 
-from src.models.jira_models import UserStory
+from src.domain.entities.user_story import UserStory
 
 logger = logging.getLogger(__name__)
 

@@ -4,7 +4,7 @@ import json
 import logging
 from typing import Optional, Dict, Any, Tuple, List
 import requests
-from src.config.settings import Settings
+from src.infrastructure.settings import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +80,7 @@ class FeatureManager:
 
             if feature_type in feature_names:
                 return True
-            
+
             logger.error("Tipo de feature '%s' no encontrado. Disponibles: %s",
                          feature_type, feature_names)
             return False
@@ -122,7 +122,7 @@ class FeatureManager:
 
             for field_id, field_info in fields.items():
                 field_name = field_info.get("name", field_id).lower()
-                
+
                 # Detectar campo Epic Name
                 if "epic" in field_name and "name" in field_name:
                     epic_name_field_id = field_id
@@ -339,7 +339,7 @@ class FeatureManager:
             if not additional_fields:
                 additional_fields = self.get_required_fields_for_feature()
                 logger.debug("Campos obligatorios detectados automáticamente: %s", additional_fields)
-            
+
             # Si no se ha detectado el Epic Name aún, intentar detectarlo
             elif self._epic_name_field_id is None:
                 self.get_required_fields_for_feature()  # Ejecutar para detectar Epic Name
@@ -490,7 +490,7 @@ class FeatureManager:
             # Extraer tipos de issue del proyecto
             if data.get("projects") and len(data["projects"]) > 0:
                 return data["projects"][0].get("issuetypes", [])
-            
+
             logger.warning("No se encontraron proyectos en createmeta")
             return []
 

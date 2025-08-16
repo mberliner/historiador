@@ -5,9 +5,11 @@ from typing import Dict, Any, List, Tuple
 
 import requests
 
-from src.models.jira_models import UserStory, ProcessResult, FeatureResult
-from src.config.settings import Settings
-from src.services.feature_manager import FeatureManager
+from src.domain.entities.user_story import UserStory
+from src.domain.entities.process_result import ProcessResult
+from src.domain.entities.feature_result import FeatureResult
+from src.infrastructure.settings import Settings
+from src.infrastructure.jira.feature_manager import FeatureManager
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +60,7 @@ class JiraClient:
 
             if self.settings.subtask_issue_type in subtask_names:
                 return True
-            
+
             logger.error("Tipo de subtarea '%s' no encontrado. Disponibles: %s",
                          self.settings.subtask_issue_type, subtask_names)
             return False
@@ -90,10 +92,35 @@ class JiraClient:
         """Crea una historia de usuario en Jira."""
         if self.settings.dry_run:
             logger.info("[DRY RUN] Creando historia: %s", story.titulo)
+
+            # Simular información de subtareas
+            subtasks_count = len(story.subtareas) if story.subtareas else 0
+
+            # Simular información de feature/parent
+            feature_info = None
+            if story.parent:
+                # Simular si es key existente o descripción de feature
+                if self.feature_manager.is_jira_key(story.parent):
+                    feature_info = FeatureResult(
+                        feature_key=story.parent,
+                        was_created=False,
+                        original_text=story.parent
+                    )
+                else:
+                    # Simular creación de feature
+                    feature_info = FeatureResult(
+                        feature_key=f"DRY-FEATURE-{hash(story.parent) % 1000}",
+                        was_created=True,
+                        original_text=story.parent
+                    )
+
             return ProcessResult(
                 success=True,
-                jira_key="DRY-RUN-123",
-                row_number=row_number
+                jira_key=f"DRY-RUN-{row_number or 1}",
+                row_number=row_number,
+                subtasks_created=subtasks_count,
+                subtasks_failed=0,
+                feature_info=feature_info
             )
 
         try:
@@ -377,7 +404,7 @@ class JiraClient:
             # Extraer tipos de issue del proyecto
             if data.get("projects") and len(data["projects"]) > 0:
                 return data["projects"][0].get("issuetypes", [])
-            
+
             logger.warning("No se encontraron proyectos en createmeta")
             return []
 
