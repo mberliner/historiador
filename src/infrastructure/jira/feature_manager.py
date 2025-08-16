@@ -5,6 +5,7 @@ import logging
 from typing import Optional, Dict, Any, Tuple, List
 import requests
 from src.infrastructure.settings import Settings
+from src.infrastructure.jira import utils as jira_utils
 
 logger = logging.getLogger(__name__)
 
@@ -177,18 +178,7 @@ class FeatureManager:
 
     def validate_existing_issue(self, issue_key: str) -> bool:
         """Valida que un issue existente (Epic/Feature) existe en Jira."""
-        if not issue_key:
-            return True
-
-        try:
-            response = self.session.get(f"{self.base_url}/rest/api/3/issue/{issue_key}")
-            response.raise_for_status()
-            return True
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 404:
-                logger.error("Issue padre %s no encontrado", issue_key)
-                return False
-            raise
+        return jira_utils.validate_issue_exists(self.session, self.base_url, issue_key)
 
     def _search_existing_features(self, normalized_description: str) -> Optional[str]:
         """Busca features existentes en Jira con descripción similar.
@@ -368,14 +358,7 @@ class FeatureManager:
 
         except requests.exceptions.HTTPError as e:
             error_msg = f"Error HTTP creando feature: {str(e)}"
-            if hasattr(e, 'response') and e.response is not None:
-                try:
-                    error_details = e.response.json()
-                    logger.error("Detalles del error: %s",
-                                 json.dumps(error_details, indent=2))
-                    error_msg += f" - Detalles: {error_details}"
-                except:
-                    logger.error("Response text: %s", e.response.text)
+            jira_utils.handle_http_error(e, logger)
             logger.error(error_msg)
             return None
 
@@ -480,23 +463,7 @@ class FeatureManager:
 
     def _get_issue_types(self) -> List[Dict[str, Any]]:
         """Obtiene los tipos de issue disponibles en el proyecto."""
-        try:
-            url = f"{self.base_url}/rest/api/3/issue/createmeta"
-            params = f"projectKeys={self.settings.project_key}&expand=projects.issuetypes"
-            response = self.session.get(f"{url}?{params}")
-            response.raise_for_status()
-            data = response.json()
-
-            # Extraer tipos de issue del proyecto
-            if data.get("projects") and len(data["projects"]) > 0:
-                return data["projects"][0].get("issuetypes", [])
-
-            logger.warning("No se encontraron proyectos en createmeta")
-            return []
-
-        except Exception as e:
-            logger.error("Error obteniendo tipos de issue: %s", str(e))
-            return []
+        return jira_utils.get_issue_types(self.session, self.base_url, self.settings.project_key)
 
     def clear_cache(self) -> None:
         """Limpia el cache de features creadas."""

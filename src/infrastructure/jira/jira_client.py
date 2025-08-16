@@ -10,6 +10,7 @@ from src.domain.entities.process_result import ProcessResult
 from src.domain.entities.feature_result import FeatureResult
 from src.infrastructure.settings import Settings
 from src.infrastructure.jira.feature_manager import FeatureManager
+from src.infrastructure.jira import utils as jira_utils
 
 logger = logging.getLogger(__name__)
 
@@ -75,18 +76,7 @@ class JiraClient:
 
     def validate_parent_issue(self, issue_key: str) -> bool:
         """Valida que el issue padre (Epic/Feature) existe."""
-        if not issue_key:
-            return True
-
-        try:
-            response = self.session.get(f"{self.base_url}/rest/api/3/issue/{issue_key}")
-            response.raise_for_status()
-            return True
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 404:
-                logger.error("Issue padre %s no encontrado", issue_key)
-                return False
-            raise
+        return jira_utils.validate_issue_exists(self.session, self.base_url, issue_key)
 
     def create_user_story(self, story: UserStory, row_number: int = None) -> ProcessResult:
         """Crea una historia de usuario en Jira."""
@@ -393,21 +383,4 @@ class JiraClient:
 
     def get_issue_types(self) -> List[Dict[str, Any]]:
         """Obtiene los tipos de issue disponibles en el proyecto."""
-        try:
-            # Usar el endpoint correcto para obtener metadata del proyecto
-            url = f"{self.base_url}/rest/api/3/issue/createmeta"
-            params = f"projectKeys={self.settings.project_key}&expand=projects.issuetypes"
-            response = self.session.get(f"{url}?{params}")
-            response.raise_for_status()
-            data = response.json()
-
-            # Extraer tipos de issue del proyecto
-            if data.get("projects") and len(data["projects"]) > 0:
-                return data["projects"][0].get("issuetypes", [])
-
-            logger.warning("No se encontraron proyectos en createmeta")
-            return []
-
-        except Exception as e:
-            logger.error("Error obteniendo tipos de issue: %s", str(e))
-            return []
+        return jira_utils.get_issue_types(self.session, self.base_url, self.settings.project_key)
