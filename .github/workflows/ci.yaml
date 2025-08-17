@@ -86,7 +86,7 @@ jobs:
       - name: Build executable with PyInstaller
         run: |
           set -e  # Exit on any error
-          pyinstaller --onefile --name historiador --add-data ".env.example;." src/main.py --clean
+          pyinstaller --onefile --name historiador --add-data=".env.example:." src/main.py --clean
           # Test that executable was created
           test -f dist/historiador
           
