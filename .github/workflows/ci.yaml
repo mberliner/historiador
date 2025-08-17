@@ -29,8 +29,17 @@ jobs:
         with:
           name: coverage-report
           path: coverage.xml
+      - name: Compilar con PyInstaller
+        run: |
+          pip install pyinstaller
+          pyinstaller --onefile --name historiador src/main.py
       - name: Guardar binario compilado
         uses: actions/upload-artifact@v4
         with:
           name: pyinstaller-dist
           path: dist/
+      - name: Guardar log de PyInstaller
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyinstaller-log
+          path: pyinstaller.log
