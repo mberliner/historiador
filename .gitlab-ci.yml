@@ -58,9 +58,9 @@ test:
     - echo "🧪 Running tests with coverage..."
     - python -m pytest tests/unit/ --cov=src --cov-report=term --cov-report=xml --cov-fail-under=80
     
-  # Equivalente a "Upload coverage to artifacts" (solo Python 3.8)
+  # Equivalente a "Upload coverage to artifacts" (todos los jobs generan, pero solo se usa el de 3.8)
   artifacts:
-    name: "coverage-report-$CI_COMMIT_SHA"
+    name: "coverage-report-$PYTHON_VERSION-$CI_COMMIT_SHA"
     when: always
     expire_in: 30 days
     reports:
@@ -69,21 +69,6 @@ test:
         path: coverage.xml
     paths:
       - coverage.xml
-  
-  # Solo generar artifacts de coverage desde Python 3.8
-  rules:
-    - if: $PYTHON_VERSION == "3.8"
-      artifacts:
-        name: "coverage-report-$CI_COMMIT_SHA"
-        when: always
-        expire_in: 30 days
-        reports:
-          coverage_report:
-            coverage_format: cobertura
-            path: coverage.xml
-        paths:
-          - coverage.xml
-    - when: always
 
 # Job de Build (equivalente exacto)
 build:
