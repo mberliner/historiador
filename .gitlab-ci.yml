@@ -1,0 +1,140 @@
+# GitLab CI/CD - Equivalente exacto a GitHub Actions
+# Triggers: Push a master + Merge Requests
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+stages:
+  - test
+  - build
+
+# Variables globales
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+# Cache global (equivalente a actions/cache@v4)
+cache:
+  key: "$CI_COMMIT_REF_SLUG-$CI_JOB_NAME"
+  paths:
+    - .cache/pip/
+  policy: pull-push
+
+# Job de Test con Matrix (equivalente a strategy: matrix)
+test:
+  stage: test
+  name: Test and Quality Checks
+  parallel:
+    matrix:
+      - PYTHON_VERSION: ["3.8", "3.11"]
+  image: python:${PYTHON_VERSION}
+  
+  # Equivalente a fail-fast: true
+  interruptible: true
+  
+  # Cache específico para test
+  cache:
+    key: "test-pip-$PYTHON_VERSION-$CI_COMMIT_REF_SLUG"
+    paths:
+      - .cache/pip/
+    policy: pull-push
+  
+  before_script:
+    # Equivalente a actions/checkout@v4 (automático en GitLab)
+    # Equivalente a actions/setup-python@v5
+    - python --version
+    - echo "Setting up Python $PYTHON_VERSION"
+    
+    # Equivalente a "Install dependencies"
+    - python -m pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pip install -r requirements-dev.txt
+    
+  script:
+    # Equivalente a "Run linting with pylint"
+    - echo "🔍 Running linting with pylint..."
+    - pylint src/ --fail-under=8.0 --output-format=text
+    
+    # Equivalente a "Run tests with coverage"
+    - echo "🧪 Running tests with coverage..."
+    - python -m pytest tests/unit/ --cov=src --cov-report=term --cov-report=xml --cov-fail-under=80
+    
+  # Equivalente a "Upload coverage to artifacts" (solo Python 3.8)
+  artifacts:
+    name: "coverage-report-$CI_COMMIT_SHA"
+    when: always
+    expire_in: 30 days
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    paths:
+      - coverage.xml
+    rules:
+      - if: $PYTHON_VERSION == "3.8"
+
+# Job de Build (equivalente exacto)
+build:
+  stage: build
+  name: Build Executable
+  image: python:3.8
+  needs: 
+    - test
+  
+  # Cache específico para build
+  cache:
+    key: "build-pip-$CI_COMMIT_REF_SLUG"
+    paths:
+      - .cache/pip/
+    policy: pull-push
+  
+  before_script:
+    # Equivalente a actions/checkout@v4 (automático)
+    # Equivalente a "Set up Python 3.8" 
+    - python --version
+    - echo "Setting up Python 3.8 for build"
+    
+    # Equivalente a "Install dependencies"
+    - python -m pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pip install pyinstaller
+    
+  script:
+    # Equivalente exacto a "Build executable with PyInstaller"
+    - echo "🏗️ Building executable with PyInstaller..."
+    - set -e  # Exit on any error
+    - pyinstaller --onefile --name historiador --add-data=".env.example:." src/main.py --clean
+    # Test that executable was created
+    - test -f dist/historiador
+    
+    # Equivalente a "Test executable"
+    - echo "🧪 Testing executable..."
+    - chmod +x dist/historiador
+    - ./dist/historiador --help
+    
+  # Equivalente a "Upload executable"
+  artifacts:
+    name: "historiador-executable-$CI_COMMIT_SHA"
+    expire_in: 30 days
+    paths:
+      - dist/historiador
+  
+  # Equivalente a "Upload build logs" (if: failure())
+  after_script:
+    - |
+      if [ "$CI_JOB_STATUS" = "failed" ]; then
+        echo "❌ Build failed, collecting logs..."
+        mkdir -p failed-build-logs
+        find . -name "*.log" -type f -exec cp {} failed-build-logs/ \; 2>/dev/null || true
+        find build/ -type f -exec cp {} failed-build-logs/ \; 2>/dev/null || true
+      fi
+      
+  # Artifacts de error (equivalente a upload build logs on failure)
+  artifacts:
+    name: "build-logs-$CI_COMMIT_SHA"
+    when: on_failure
+    expire_in: 7 days
+    paths:
+      - failed-build-logs/
+      - build/
+      - "*.log"
