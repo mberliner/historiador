@@ -29,3 +29,8 @@ jobs:
         with:
           name: coverage-report
           path: coverage.xml
+      - name: Guardar binario compilado
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyinstaller-dist
+          path: dist/
