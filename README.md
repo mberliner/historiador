@@ -4,9 +4,13 @@ Aplicación CLI para crear historias de usuario en Jira desde archivos Excel/CSV
 
 ## 🚀 Inicio Rápido
 
+**Requisitos**: Python 3.8+
+
 1. **Instalar dependencias:**
    ```bash
    pip install -r requirements.txt
+   # Para desarrollo:
+   pip install -r requirements-dev.txt
    ```
 
 2. **Configurar credenciales:**
@@ -75,8 +79,8 @@ python src/main.py validate -f archivo.csv
 # Diagnosticar configuración
 python src/main.py diagnose -p PROYECTO
 
-#Si tienes el ejecutable:
-historiador = python ser/main.py
+# Si tienes el ejecutable:
+historiador = python src/main.py
 
 ```
 
