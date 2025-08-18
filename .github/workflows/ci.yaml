@@ -3,8 +3,14 @@ name: CI
 on:
   push:
     branches: [ master ]
+    paths-ignore:
+      - '*.md'
+      - '**/*.md'
   pull_request:
     branches: [ master ]
+    paths-ignore:
+      - '*.md'
+      - '**/*.md'
 
 jobs:
   test:
