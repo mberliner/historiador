@@ -24,7 +24,7 @@ python src/main.py diagnose -p PROJECT_KEY
 python src/main.py -p PROJECT_KEY --dry-run
 
 # Generar ejecutable
-python -m PyInstaller --onefile --name historiador --add-data ".env.example;." src/main.py --clean
+python -m PyInstaller --onefile --name historiador --add-data=".env.example:." src/main.py --clean
 ```
 
 ## Configuración Específica del Proyecto
@@ -133,6 +133,129 @@ pylint src/main.py
 
 # Ver solo errores críticos
 pylint --errors-only src/
+```
+
+## CI/CD Configuration
+El proyecto cuenta con pipelines automatizados que garantizan calidad en cada commit:
+
+### GitHub Actions (Primary)
+- **Archivo**: `.github/workflows/ci.yaml`
+- **Triggers**: Push y Pull Requests a master
+- **Matrix testing**: Python 3.8 y 3.11 en paralelo
+- **Quality gates**: 
+  - PyLint score ≥ 8.0 (obligatorio)
+  - Test coverage ≥ 80% (obligatorio)
+  - All unit tests pass (obligatorio)
+  - Executable builds successfully (obligatorio)
+
+### GitLab CI (Mirror)
+- **Archivo**: `.gitlab-ci.yml`
+- **Configuración equivalente** para validación secundaria
+- **Mismo quality gates** que GitHub Actions
+
+### Pipeline Commands (Simular CI localmente)
+```bash
+# Comandos exactos del CI para debug local
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+
+# Quality checks (deben pasar)
+pylint src/ --fail-under=8.0 --output-format=text
+pytest tests/unit/ --cov=src --cov-report=xml --cov-fail-under=80
+
+# Build validation
+pyinstaller --onefile --name historiador --add-data=".env.example:." src/main.py --clean
+./dist/historiador --help
+```
+
+### Branch Protection Activa
+- ❌ **No direct pushes** to master (bloqueado)
+- ✅ **Pull Request required** (obligatorio)
+- ✅ **CI must pass** before merge (obligatorio)
+- ✅ **1 review required** (obligatorio)
+
+## Testing Strategy
+### Framework y Configuración
+- **Test framework**: pytest + coverage + mocks
+- **Test organization**: tests/unit/ organized by Clean Architecture layers
+- **Coverage tool**: pytest-cov with XML output
+- **Mock strategy**: Jira API responses via fixtures in tests/fixtures/
+
+### Test Structure
+```
+tests/unit/
+├── application/     # Use cases tests
+├── domain/         # Entity tests  
+├── infrastructure/ # Jira client, file processor tests
+└── presentation/   # CLI commands tests
+```
+
+### Test Commands for Development
+```bash
+# Run all unit tests
+pytest tests/unit/
+
+# Run by layer
+pytest tests/unit/domain/
+pytest tests/unit/application/
+pytest tests/unit/infrastructure/
+pytest tests/unit/presentation/
+
+# Run with coverage
+pytest tests/unit/ --cov=src --cov-report=term-missing
+
+# Debug specific test
+pytest tests/unit/domain/test_user_story.py::test_validate_title -v -s
+```
+
+## Development Workflow
+### Required Process (Branch Protection)
+```bash
+# ❌ BLOCKED - Direct push to master
+git push origin master
+
+# ✅ REQUIRED - Feature branch workflow
+git checkout -b feature/improvement
+git push origin feature/improvement
+# 1. Create Pull Request in GitHub
+# 2. CI pipeline runs automatically
+# 3. All quality gates must pass
+# 4. Get 1 review approval
+# 5. Merge button enabled
+```
+
+### Quality Gates Process
+```bash
+# These must ALL pass for merge:
+1. ✅ PyLint score ≥ 8.0
+2. ✅ Test coverage ≥ 80%  
+3. ✅ All unit tests pass
+4. ✅ Executable builds and runs
+5. ✅ 1 code review approval
+```
+
+## Coverage Configuration
+### Current Settings
+- **Threshold**: 80% minimum (enforced in CI)
+- **Tool**: pytest-cov with XML output for CI integration
+- **Exclusions**: tests/, main.py (entry point)
+- **Reports**: 
+  - Terminal: `--cov-report=term-missing`
+  - HTML: `--cov-report=html` (generates htmlcov/)
+  - XML: `--cov-report=xml` (for CI tools)
+
+### Coverage Commands
+```bash
+# Check coverage locally
+pytest tests/unit/ --cov=src --cov-report=term-missing --cov-fail-under=80
+
+# Generate HTML report for detailed analysis
+pytest tests/unit/ --cov=src --cov-report=html
+# Open htmlcov/index.html in browser
+
+# CI command (exact)
+pytest tests/unit/ --cov=src --cov-report=xml --cov-fail-under=80
 ```
 
 ## Estructura de Directorios

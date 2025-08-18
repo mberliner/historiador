@@ -136,10 +136,10 @@ Para información detallada, ejemplos avanzados y troubleshooting, consulta [DOC
 
 ```bash
 pip install pyinstaller
-python -m PyInstaller --onefile --name historiador --add-data ".env.example;." src/main.py --clean
+python -m PyInstaller --onefile --name historiador --add-data=".env.example:." src/main.py --clean
 ```
 
-El ejecutable se genera en `dist/historiador.exe`.
+El ejecutable se genera en `dist/historiador` (Linux/Mac) o `dist/historiador.exe` (Windows).
 
 ## 📝 Obtener API Token
 

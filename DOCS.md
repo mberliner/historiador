@@ -6,6 +6,8 @@
 - [Comandos y Opciones](#comandos-y-opciones)
 - [Formato de Archivos](#formato-de-archivos)
 - [Gestión de Features](#gestión-de-features)
+- [Testing y Coverage](#testing-y-coverage)
+- [CI/CD Pipelines](#cicd-pipelines)
 - [Validación y Manejo de Errores](#validación-y-manejo-de-errores)
 - [Ejemplos Completos](#ejemplos-completos)
 - [Troubleshooting](#troubleshooting)
@@ -219,6 +221,437 @@ FEATURE_REQUIRED_FIELDS={"customfield_10020": {"id": "1"}, "customfield_10021": 
 ```
 
 **Detección automática**: El comando `diagnose` detecta campos obligatorios automáticamente.
+
+## Testing y Coverage
+
+### Estrategia de Testing
+
+El proyecto implementa testing exhaustivo con múltiples niveles:
+
+#### **Tests Unitarios**
+```bash
+# Ejecutar todos los tests unitarios
+pytest tests/unit/
+
+# Tests específicos por módulo
+pytest tests/unit/domain/
+pytest tests/unit/application/
+pytest tests/unit/infrastructure/
+pytest tests/unit/presentation/
+```
+
+#### **Estructura de Tests**
+```
+tests/
+├── unit/                           # Tests unitarios
+│   ├── application/               # Tests de casos de uso
+│   │   ├── test_process_files_use_case.py
+│   │   ├── test_validate_file_use_case.py
+│   │   └── test_diagnose_features_use_case.py
+│   ├── domain/                    # Tests de entidades
+│   │   ├── test_user_story.py
+│   │   ├── test_process_result.py
+│   │   └── test_batch_result.py
+│   ├── infrastructure/           # Tests de infraestructura
+│   │   ├── jira/
+│   │   │   ├── test_jira_client.py
+│   │   │   ├── test_feature_manager.py
+│   │   │   └── test_utils.py
+│   │   └── file_system/
+│   │       └── test_file_processor.py
+│   └── presentation/             # Tests de CLI
+│       ├── cli/test_commands.py
+│       └── formatters/test_output_formatter.py
+├── fixtures/                     # Datos de prueba
+│   ├── jira_responses.py        # Mocks de respuestas Jira
+│   └── sample_data.py           # Datos CSV de ejemplo
+└── conftest.py                  # Configuración pytest
+```
+
+#### **Mocks y Fixtures**
+
+El proyecto usa mocks para aislar componentes:
+
+```python
+# Ejemplo: Mock de Jira API
+@pytest.fixture
+def mock_jira_client():
+    with patch('infrastructure.jira.jira_client.requests') as mock_requests:
+        mock_requests.post.return_value.json.return_value = {
+            "key": "PROJ-123",
+            "id": "10001"
+        }
+        yield mock_requests
+
+# Uso en tests
+def test_create_issue(mock_jira_client):
+    result = jira_client.create_issue(issue_data)
+    assert result.key == "PROJ-123"
+```
+
+### Políticas de Coverage
+
+#### **Umbrales de Coverage**
+- **Mínimo requerido**: 80%
+- **Objetivo**: 90%+
+- **Crítico**: Nunca < 75%
+
+#### **Coverage por Módulo**
+```bash
+# Coverage detallado por archivo
+pytest --cov=src --cov-report=html tests/unit/
+
+# Coverage con exclusiones
+pytest --cov=src --cov-report=term-missing --cov-fail-under=80
+```
+
+#### **Archivos Excluidos del Coverage**
+```ini
+# .coveragerc
+[run]
+omit = 
+    */tests/*
+    */venv/*
+    */migrations/*
+    src/main.py  # Entry point simple
+```
+
+#### **Reportes de Coverage**
+
+**Terminal Report:**
+```bash
+pytest --cov=src --cov-report=term
+# Muestra % por archivo
+
+pytest --cov=src --cov-report=term-missing
+# Muestra líneas no cubiertas
+```
+
+**HTML Report:**
+```bash
+pytest --cov=src --cov-report=html
+# Genera htmlcov/index.html navegable
+```
+
+**XML Report (CI/CD):**
+```bash
+pytest --cov=src --cov-report=xml
+# Genera coverage.xml para herramientas CI
+```
+
+### Comandos de Testing
+
+#### **Development Workflow**
+```bash
+# Quick test (solo cambios)
+pytest tests/unit/application/ -v
+
+# Full test suite con coverage
+pytest tests/unit/ --cov=src --cov-report=term-missing
+
+# Test específico
+pytest tests/unit/domain/test_user_story.py::test_validate_title -v
+
+# Test con debugging
+pytest tests/unit/ -s -vv --tb=short
+```
+
+#### **CI/CD Commands**
+```bash
+# Comando usado en CI (falla si coverage < 80%)
+pytest tests/unit/ --cov=src --cov-report=xml --cov-fail-under=80
+
+# Linting antes de tests
+pylint src/ --fail-under=8.0
+
+# Comando completo CI
+pylint src/ --fail-under=8.0 && pytest tests/unit/ --cov=src --cov-fail-under=80
+```
+
+#### **Performance Testing**
+```bash
+# Tests con timing
+pytest tests/unit/ --durations=10
+
+# Profile de memoria
+pytest tests/unit/ --profile
+
+# Parallel execution
+pytest tests/unit/ -n auto  # Requiere pytest-xdist
+```
+
+### Quality Gates
+
+#### **Pre-commit Hooks**
+```yaml
+# .pre-commit-config.yaml (ejemplo)
+repos:
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: pytest tests/unit/ --cov=src --cov-fail-under=80
+        language: system
+        pass_filenames: false
+        
+      - id: pylint
+        name: pylint
+        entry: pylint src/ --fail-under=8.0
+        language: system
+        files: \.py$
+```
+
+#### **IDE Integration**
+```json
+// VSCode settings.json
+{
+    "python.testing.pytestEnabled": true,
+    "python.testing.pytestArgs": [
+        "tests/unit/",
+        "--cov=src",
+        "--cov-report=html"
+    ],
+    "coverage-gutters.coverageFileNames": [
+        "coverage.xml",
+        "htmlcov/index.html"
+    ]
+}
+```
+
+## CI/CD Pipelines
+
+El proyecto cuenta con pipelines automatizados en **GitHub Actions** y **GitLab CI** que garantizan la calidad del código.
+
+### GitHub Actions
+
+#### **Configuración Actual**
+```yaml
+# .github/workflows/ci.yaml
+name: CI
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+```
+
+#### **Jobs Implementados**
+
+**1. Test Matrix:**
+- **Python 3.8 y 3.11** ejecutándose en paralelo
+- **Fail-fast**: Pipeline se detiene si falla cualquier versión
+- **Cache de pip** para optimizar velocidad
+
+**2. Quality Gates:**
+```bash
+# Linting obligatorio (score ≥ 8.0)
+pylint src/ --fail-under=8.0 --output-format=text
+
+# Coverage mínimo (≥ 80%)
+pytest tests/unit/ --cov=src --cov-report=xml --cov-fail-under=80
+```
+
+**3. Build y Validación:**
+```bash
+# Generación de ejecutable
+pyinstaller --onefile --name historiador --add-data=".env.example:." src/main.py --clean
+
+# Test del ejecutable
+./dist/historiador --help
+```
+
+**4. Artifacts Generados:**
+- **Coverage report** (coverage.xml) - Solo Python 3.8
+- **Ejecutable binario** (historiador-executable-SHA)
+- **Build logs** (solo en caso de error)
+
+#### **Branch Protection Configurado**
+```yaml
+Required status checks:
+  - test / Test and Quality Checks (3.8)
+  - test / Test and Quality Checks (3.11)
+  - build / Build Executable
+
+Branch rules:
+  - Require pull request reviews: 1
+  - Dismiss stale PR approvals: ✅
+  - Include administrators: ✅
+  - No direct pushes to master
+```
+
+### GitLab CI
+
+#### **Configuración Equivalente**
+```yaml
+# .gitlab-ci.yml
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+stages:
+  - test
+  - build
+```
+
+#### **Jobs Configurados**
+
+**1. Test Matrix GitLab:**
+```yaml
+test:
+  parallel:
+    matrix:
+      - PYTHON_VERSION: ["3.8", "3.11"]
+  image: python:${PYTHON_VERSION}
+  script:
+    - pylint src/ --fail-under=8.0
+    - pytest tests/unit/ --cov=src --cov-fail-under=80
+```
+
+**2. Build Job:**
+```yaml
+build:
+  image: python:3.8
+  needs: [test]
+  script:
+    - pyinstaller --onefile --name historiador src/main.py
+    - ./dist/historiador --help
+```
+
+#### **Diferencias Implementadas**
+
+| Feature | GitHub Actions | GitLab CI |
+|---------|----------------|-----------|
+| **Triggers** | Push + PR a master | Push + MR a master |
+| **Matrix** | `strategy: matrix` | `parallel: matrix` |
+| **Cache** | `actions/cache@v4` | `cache: paths:` |
+| **Coverage** | Upload artifact | `reports: coverage_report` |
+| **Dependencies** | `needs: [test]` | `needs: - test` |
+
+### Pipeline Status
+
+#### **Triggers Actuales**
+- ✅ **Push a master** → Ejecuta pipeline completo
+- ✅ **Pull/Merge Requests** → Ejecuta pipeline completo
+- ❌ **Tags** → No configurado actualmente
+- ❌ **Scheduled** → No configurado
+
+#### **Quality Gates Activos**
+- 🔍 **PyLint Score** ≥ 8.0 (obligatorio)
+- 📊 **Test Coverage** ≥ 80% (obligatorio)
+- 🧪 **Unit Tests** deben pasar (obligatorio)
+- 🏗️ **Build Success** ejecutable funcional (obligatorio)
+
+### Workflow de Desarrollo
+
+#### **Flujo Actual**
+```bash
+1. Developer crea branch feature/xxx
+2. Push a GitHub → GitHub Actions ejecuta
+3. Crear Pull Request → Re-ejecuta pipeline
+4. Review + CI verde → Merge permitido
+5. Merge a master → GitLab sync manual
+6. GitLab CI valida sync
+```
+
+#### **Branch Protection en Acción**
+```bash
+# ❌ Esto está bloqueado:
+git push origin master
+
+# ✅ Flujo obligatorio:
+git checkout -b feature/improvement
+git push origin feature/improvement
+# → Crear PR → CI pasa → Review → Merge
+```
+
+### Artifacts y Reports
+
+#### **GitHub Artifacts**
+- **Coverage XML**: Disponible 30 días
+- **Ejecutable**: Con SHA único, 30 días retention
+- **Build logs**: Solo en fallos, 7 días retention
+
+#### **GitLab Artifacts**
+- **Coverage Report**: Integrado en UI de GitLab
+- **Ejecutable**: Con SHA único, 30 días
+- **Coverage Visualization**: Badges automáticos
+
+### Troubleshooting CI
+
+#### **Errores Comunes**
+
+**1. PyLint Score < 8.0:**
+```bash
+# Ver detalles del error
+pylint src/ --output-format=text
+
+# Fix común: documentar funciones
+def process_file(file_path):
+    """Process CSV file and create Jira issues."""
+```
+
+**2. Coverage < 80%:**
+```bash
+# Ver líneas no cubiertas
+pytest --cov=src --cov-report=term-missing
+
+# Identificar archivos con bajo coverage
+pytest --cov=src --cov-report=html
+# Ver htmlcov/index.html
+```
+
+**3. Build Failure:**
+```bash
+# Error común: PyInstaller syntax
+pyinstaller --add-data=".env.example:." src/main.py  # ✅ Correcto
+pyinstaller --add-data ".env.example;." src/main.py  # ❌ Windows syntax
+```
+
+**4. Test Failures:**
+```bash
+# Debug tests localmente
+pytest tests/unit/ -v -s --tb=short
+
+# Test específico
+pytest tests/unit/domain/test_user_story.py::test_validate -v
+```
+
+#### **Comandos de Debug Local**
+
+**Simular CI localmente:**
+```bash
+# Ejecutar exact CI commands
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+pylint src/ --fail-under=8.0 --output-format=text
+pytest tests/unit/ --cov=src --cov-report=term --cov-fail-under=80
+```
+
+**Test del ejecutable:**
+```bash
+# Generar como en CI
+pyinstaller --onefile --name historiador --add-data=".env.example:." src/main.py --clean
+chmod +x dist/historiador
+./dist/historiador --help
+```
+
+### Estado Actual
+
+#### **Funcionalidades Implementadas**
+- ✅ **Dual CI**: GitHub Actions + GitLab CI
+- ✅ **Quality Gates**: PyLint + Coverage + Tests
+- ✅ **Matrix Testing**: Python 3.8 + 3.11
+- ✅ **Branch Protection**: PRs obligatorios
+- ✅ **Artifact Generation**: Ejecutables + Reports
+- ✅ **Build Validation**: Test de ejecutable
+
+#### **Pendientes de Configurar**
+- ⏳ **Release automation**: Tags y releases automáticos
+- ⏳ **Deployment**: Deploy a registries/releases
+- ⏳ **Notifications**: Slack/email en fallos
+- ⏳ **Security scanning**: SAST/dependency check
 
 ## Validación y Manejo de Errores
 
