@@ -143,10 +143,12 @@ class ProcessFilesUseCase:
 
                 overall_results.extend(batch_result.results)
 
-                # Mover archivo a procesados si el procesamiento fue exitoso
-                if batch_result.successful > 0:
+                # Mover archivo a procesados solo si no es dry-run y fue exitoso
+                if not self.settings.dry_run and batch_result.successful > 0:
                     self.move_file_to_processed(current_file)
                     logger.info("Archivo movido a directorio de procesados")
+                elif self.settings.dry_run:
+                    logger.info("Dry-run mode: archivo no movido - %s", current_file)
                 else:
                     logger.warning("Archivo no movido debido a fallos: %s", current_file)
 
