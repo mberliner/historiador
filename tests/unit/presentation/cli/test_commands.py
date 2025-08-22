@@ -19,17 +19,21 @@ class TestSetupLogging:
         
         with patch('src.presentation.cli.commands.logging.basicConfig') as mock_config:
             with patch('src.presentation.cli.commands.Path') as mock_path_class:
-                mock_logs_dir = Mock()
-                mock_path_class.return_value = mock_logs_dir
-                mock_logs_dir.mkdir = Mock()
-                mock_logs_dir.__truediv__ = Mock(return_value=Mock())
-                
-                setup_logging(settings, "INFO")
-                
-                # Verify logging configuration
-                mock_config.assert_called_once()
-                config_kwargs = mock_config.call_args[1]
-                assert config_kwargs['level'] == 20  # logging.INFO
+                with patch('src.presentation.cli.commands.logging.FileHandler') as mock_file_handler:
+                    with patch('src.presentation.cli.commands.logging.StreamHandler') as mock_stream_handler:
+                        mock_logs_dir = Mock()
+                        mock_path_class.return_value = mock_logs_dir
+                        mock_logs_dir.mkdir = Mock()
+                        mock_log_file = Mock()
+                        mock_log_file.__str__ = Mock(return_value="test_logs/jira_batch.log")
+                        mock_logs_dir.__truediv__ = Mock(return_value=mock_log_file)
+                        
+                        setup_logging(settings, "INFO")
+                        
+                        # Verify logging configuration
+                        mock_config.assert_called_once()
+                        config_kwargs = mock_config.call_args[1]
+                        assert config_kwargs['level'] == 20  # logging.INFO
 
     def test_setup_logging_different_levels(self):
         """Test logging setup with different levels."""
@@ -42,15 +46,19 @@ class TestSetupLogging:
         for level, expected in zip(levels, expected_levels):
             with patch('src.presentation.cli.commands.logging.basicConfig') as mock_config:
                 with patch('src.presentation.cli.commands.Path') as mock_path_class:
-                    mock_logs_dir = Mock()
-                    mock_path_class.return_value = mock_logs_dir
-                    mock_logs_dir.mkdir = Mock()
-                    mock_logs_dir.__truediv__ = Mock(return_value=Mock())
-                    
-                    setup_logging(settings, level)
-                    
-                    config_kwargs = mock_config.call_args[1]
-                    assert config_kwargs['level'] == expected
+                    with patch('src.presentation.cli.commands.logging.FileHandler') as mock_file_handler:
+                        with patch('src.presentation.cli.commands.logging.StreamHandler') as mock_stream_handler:
+                            mock_logs_dir = Mock()
+                            mock_path_class.return_value = mock_logs_dir
+                            mock_logs_dir.mkdir = Mock()
+                            mock_log_file = Mock()
+                            mock_log_file.__str__ = Mock(return_value="test_logs/jira_batch.log")
+                            mock_logs_dir.__truediv__ = Mock(return_value=mock_log_file)
+                            
+                            setup_logging(settings, level)
+                            
+                            config_kwargs = mock_config.call_args[1]
+                            assert config_kwargs['level'] == expected
 
     def test_setup_logging_handlers(self):
         """Test that both console and file handlers are configured."""
@@ -83,16 +91,20 @@ class TestCommandsImports:
         
         with patch('src.presentation.cli.commands.logging.basicConfig') as mock_config:
             with patch('src.presentation.cli.commands.Path') as mock_path_class:
-                mock_logs_dir = Mock()
-                mock_path_class.return_value = mock_logs_dir
-                mock_logs_dir.mkdir = Mock()
-                mock_logs_dir.__truediv__ = Mock(return_value=Mock())
-                
-                # Test that setup_logging works without errors
-                setup_logging(settings, "INFO")
-                
-                # Verify basic configuration was called
-                mock_config.assert_called_once()
+                with patch('src.presentation.cli.commands.logging.FileHandler') as mock_file_handler:
+                    with patch('src.presentation.cli.commands.logging.StreamHandler') as mock_stream_handler:
+                        mock_logs_dir = Mock()
+                        mock_path_class.return_value = mock_logs_dir
+                        mock_logs_dir.mkdir = Mock()
+                        mock_log_file = Mock()
+                        mock_log_file.__str__ = Mock(return_value="test_logs/jira_batch.log")
+                        mock_logs_dir.__truediv__ = Mock(return_value=mock_log_file)
+                        
+                        # Test that setup_logging works without errors
+                        setup_logging(settings, "INFO")
+                        
+                        # Verify basic configuration was called
+                        mock_config.assert_called_once()
 
     def test_command_imports_work(self):
         """Test that command imports work correctly."""
@@ -119,14 +131,18 @@ class TestCommandsImports:
         for level in levels:
             with patch('src.presentation.cli.commands.logging.basicConfig') as mock_config:
                 with patch('src.presentation.cli.commands.Path') as mock_path_class:
-                    mock_logs_dir = Mock()
-                    mock_path_class.return_value = mock_logs_dir
-                    mock_logs_dir.mkdir = Mock()
-                    mock_logs_dir.__truediv__ = Mock(return_value=Mock())
-                    
-                    # Should not raise any exceptions
-                    setup_logging(settings, level)
-                    mock_config.assert_called_once()
+                    with patch('src.presentation.cli.commands.logging.FileHandler') as mock_file_handler:
+                        with patch('src.presentation.cli.commands.logging.StreamHandler') as mock_stream_handler:
+                            mock_logs_dir = Mock()
+                            mock_path_class.return_value = mock_logs_dir
+                            mock_logs_dir.mkdir = Mock()
+                            mock_log_file = Mock()
+                            mock_log_file.__str__ = Mock(return_value="test_logs/jira_batch.log")
+                            mock_logs_dir.__truediv__ = Mock(return_value=mock_log_file)
+                            
+                            # Should not raise any exceptions
+                            setup_logging(settings, level)
+                            mock_config.assert_called_once()
 
     def test_command_functions_exist(self):
         """Test that all command functions exist and are callable."""
