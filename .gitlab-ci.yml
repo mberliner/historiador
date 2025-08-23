@@ -148,8 +148,8 @@ upload_package:
     - echo "=== UPLOAD DIAGNOSTICS ==="
     - echo "File to upload:"
     - ls -la dist/historiador
-    - echo "Target URL: ${PACKAGE_URL}"
-    - echo "Job Token: ${CI_JOB_TOKEN:0:20}..."
+    - echo Target URL: ${PACKAGE_URL}
+    - echo Job Token: ${CI_JOB_TOKEN:0:20}...
     - echo ""
     - echo "=== STARTING UPLOAD ==="
     - curl -v -H JOB-TOKEN:${CI_JOB_TOKEN} --upload-file dist/historiador ${PACKAGE_URL}
