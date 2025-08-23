@@ -132,20 +132,43 @@ build:
         find build/ -type f -exec cp {} failed-build-logs/ \; 2>/dev/null || true
       fi
 
+# Job para subir al Package Registry
+upload_package:
+  stage: release
+  image: alpine:latest
+  needs: 
+    - job: build
+      artifacts: true
+  
+  before_script:
+    - apk add --no-cache curl
+    
+  script:
+    - echo "Uploading historiador to GitLab Package Registry..."
+    - ls -la dist/
+    - test -f dist/historiador
+    - curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file dist/historiador "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/historiador/${CI_COMMIT_TAG}/historiador"
+    - echo "Package uploaded successfully"
+    - echo "Verifying package accessibility..."
+    - sleep 5
+    - curl -f --header "JOB-TOKEN: $CI_JOB_TOKEN" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/historiador/${CI_COMMIT_TAG}/historiador" -o /tmp/downloaded_historiador
+    - test -f /tmp/downloaded_historiador
+    - echo "Package verification successful - executable is accessible"
+  
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+      when: on_success
+    - when: never
+
 # Job de Release Automático
 release_job:
   stage: release
   image: registry.gitlab.com/gitlab-org/release-cli:latest
   needs: 
-    - job: build
-      artifacts: true  # Asegurar descarga de artefactos
+    - upload_package
   
   script:
     - echo "Creating release for $CI_COMMIT_TAG"
-    - ls -la dist/
-    - test -f dist/historiador
-    - echo "Uploading to GitLab Package Registry..."
-    - curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file dist/historiador "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/historiador/${CI_COMMIT_TAG}/historiador"
     
   release:
     tag_name: '$CI_COMMIT_TAG'
