@@ -8,6 +8,7 @@ workflow:
 stages:
   - test
   - build
+  - release
 
 # Variables globales
 variables:
@@ -76,6 +77,9 @@ build:
   image: python:3.8
   needs: 
     - test
+  parallel:
+    matrix:
+      - OS_TYPE: "linux"
   
   # Cache específico para build
   cache:
@@ -111,7 +115,7 @@ build:
   # Equivalente a "Upload executable" + "Upload build logs on failure"
   artifacts:
     name: "historiador-executable-$CI_COMMIT_SHA"
-    expire_in: 30 days
+    expire_in: 6 months
     paths:
       - dist/historiador
     # Logs solo en caso de error
@@ -126,3 +130,73 @@ build:
         find . -name "*.log" -type f -exec cp {} failed-build-logs/ \; 2>/dev/null || true
         find build/ -type f -exec cp {} failed-build-logs/ \; 2>/dev/null || true
       fi
+
+# Job de Release Automático
+release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  needs: 
+    - build
+  
+  # No cache needed para release
+  cache: {}
+  
+  before_script:
+    - echo "🚀 Preparing release $CI_COMMIT_TAG"
+    - echo "Pipeline: $CI_PIPELINE_URL"
+    - echo "Commit: $CI_COMMIT_SHA"
+    
+  script:
+    - echo "Creating GitLab release for tag $CI_COMMIT_TAG"
+    - echo "Executable available at pipeline $CI_PIPELINE_ID"
+    
+  release:
+    tag_name: '$CI_COMMIT_TAG'
+    name: 'Historiador $CI_COMMIT_TAG'
+    description: |
+      ## 📦 Historiador v$CI_COMMIT_TAG
+      
+      Ejecutable CLI optimizado para importar historias de usuario desde CSV/Excel a Jira.
+      
+      ### 🎯 Características de esta Versión
+      - **Tamaño optimizado**: 51MB (excluye herramientas de desarrollo)  
+      - **Compatibilidad**: Linux x64
+      - **Testeado en**: Python 3.8 y 3.13
+      - **Arquitectura**: Clean Architecture (4 capas)
+      
+      ### ✅ Quality Gates Validados
+      - **PyLint Score**: ≥8.0 (código de calidad)
+      - **Test Coverage**: ≥80% (cobertura de tests)  
+      - **Unit Tests**: Todos los tests pasando (366+ tests)
+      - **Build**: Ejecutable generado y validado
+      
+      ### 📋 Información del Pipeline
+      - **Commit**: `$CI_COMMIT_SHA`
+      - **Pipeline**: [$CI_PIPELINE_ID]($CI_PIPELINE_URL)
+      - **Fecha Build**: $CI_PIPELINE_CREATED_AT
+      - **Generado por**: GitLab CI/CD
+      
+      ### 🔧 Uso
+      ```bash
+      # Descargar y usar
+      chmod +x historiador
+      ./historiador --help
+      ./historiador -p TU_PROYECTO --dry-run
+      ```
+      
+      ### 📚 Documentación
+      - [README.md](README.md): Guía de inicio rápido
+      - [DOCS.md](DOCS.md): Documentación completa  
+      - [BUILD_OPTIMIZATION.md](BUILD_OPTIMIZATION.md): Detalles de optimización
+    assets:
+      links:
+        - name: 'historiador'
+          url: '${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_TAG}/raw/dist/historiador?job=build'
+          link_type: 'package'
+          filepath: '/historiador'
+          
+  # Solo ejecutar en tags que sigan semantic versioning
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+      when: on_success
+    - when: never

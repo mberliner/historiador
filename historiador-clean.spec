@@ -62,6 +62,15 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=None)
 
+import os
+
+# Detectar plataforma y asignar nombre apropiado
+import sys
+if sys.platform.startswith('win'):
+    executable_name = 'historiador.exe'
+else:
+    executable_name = 'historiador'
+
 exe = EXE(
     pyz,
     a.scripts,
@@ -69,7 +78,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='historiador',
+    name=executable_name.replace('.exe', ''),  # PyInstaller añade .exe automáticamente en Windows
     debug=False,
     bootloader_ignore_signals=False,
     strip=True,              # Eliminar símbolos de debug

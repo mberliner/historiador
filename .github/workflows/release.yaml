@@ -9,6 +9,11 @@ permissions:
   contents: write
   actions: write
 
+env:
+  APP_NAME: historiador
+  LINUX_EXECUTABLE: historiador
+  WINDOWS_EXECUTABLE: historiador.exe
+
 jobs:
   trigger-ci:
     name: Trigger CI Validation
@@ -121,10 +126,8 @@ jobs:
         include:
           - os: ubuntu-latest
             platform: linux
-            executable_name: historiador-linux
           - os: windows-latest
             platform: windows
-            executable_name: historiador-windows.exe
 
     steps:
       - name: Checkout code
@@ -154,29 +157,34 @@ jobs:
       - name: Build executable with PyInstaller (Linux)
         if: matrix.platform == 'linux'
         run: |
-          pyinstaller --onefile --name historiador-linux --add-data=".env.example:." src/main.py --clean
+          set -e  # Exit on any error
+          pyinstaller historiador-clean.spec --clean
+          # Test that executable was created
+          test -f dist/${{ env.LINUX_EXECUTABLE }}
 
       - name: Build executable with PyInstaller (Windows)
         if: matrix.platform == 'windows'
         run: |
-          pyinstaller --onefile --name historiador-windows --add-data=".env.example;." src/main.py --clean
+          pyinstaller historiador-clean.spec --clean
+          # Test that executable was created (Windows path)
+          if not exist dist\${{ env.WINDOWS_EXECUTABLE }} exit 1
 
       - name: Test executable (Linux)
         if: matrix.platform == 'linux'
         run: |
-          chmod +x dist/historiador-linux
-          ./dist/historiador-linux --help
+          chmod +x dist/${{ env.LINUX_EXECUTABLE }}
+          ./dist/${{ env.LINUX_EXECUTABLE }} --help
 
       - name: Test executable (Windows)
         if: matrix.platform == 'windows'
         run: |
-          .\dist\historiador-windows.exe --help
+          .\dist\${{ env.WINDOWS_EXECUTABLE }} --help
 
       - name: Upload executable as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.executable_name }}
-          path: dist/${{ matrix.executable_name }}
+          name: ${{ matrix.platform == 'linux' && env.LINUX_EXECUTABLE || env.WINDOWS_EXECUTABLE }}
+          path: dist/${{ matrix.platform == 'linux' && env.LINUX_EXECUTABLE || env.WINDOWS_EXECUTABLE }}
           retention-days: 90
 
   release:
@@ -215,8 +223,8 @@ jobs:
             Aplicación de línea de comandos para importar historias de usuario desde CSV/Excel hacia Jira.
             
             ### 📥 Descargas
-            - **Linux**: historiador-linux
-            - **Windows**: historiador-windows.exe
+            - **Linux**: ${{ env.LINUX_EXECUTABLE }}
+            - **Windows**: ${{ env.WINDOWS_EXECUTABLE }}
             
             ### ✅ Validación
             Este release pasó todos los quality gates:
@@ -227,14 +235,14 @@ jobs:
             ### 📖 Uso
             ```bash
             # Linux
-            chmod +x historiador-linux
-            ./historiador-linux --help
+            chmod +x ${{ env.LINUX_EXECUTABLE }}
+            ./${{ env.LINUX_EXECUTABLE }} --help
             
             # Windows
-            historiador-windows.exe --help
+            ${{ env.WINDOWS_EXECUTABLE }} --help
             ```
           files: |
-            artifacts/historiador-linux/historiador-linux
-            artifacts/historiador-windows.exe/historiador-windows.exe
+            artifacts/${{ env.LINUX_EXECUTABLE }}/${{ env.LINUX_EXECUTABLE }}
+            artifacts/${{ env.WINDOWS_EXECUTABLE }}/${{ env.WINDOWS_EXECUTABLE }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
