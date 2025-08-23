@@ -1,5 +1,5 @@
 """Entidad BatchResult del dominio."""
-from typing import List
+from typing import List, Any, Optional
 
 from pydantic import BaseModel
 
@@ -12,3 +12,4 @@ class BatchResult(BaseModel):
     successful: int
     failed: int
     results: List[ProcessResult]
+    stories: Optional[List[Any]] = None  # Para almacenar las historias originales

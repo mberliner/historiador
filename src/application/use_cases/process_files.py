@@ -88,22 +88,18 @@ class ProcessFilesUseCase:
 
     def process_single_file(self, file_path: str) -> BatchResult:
         """Procesa un único archivo."""
-        from src.presentation.formatters.output_formatter import OutputFormatter
-        formatter = OutputFormatter()
-
         results: List[ProcessResult] = []
+        stories = []  # Para almacenar las historias
         batch_count = 0
 
         for row_number, story in enumerate(self.file_processor.process_file(file_path), start=1):
             result = self.jira_client.create_user_story(story, row_number)
             results.append(result)
-
-            # Mostrar resultado inmediatamente
-            formatter.print_story_result(result, story.titulo)
+            stories.append(story)  # Guardar story para mostrar título después
 
             batch_count += 1
             if batch_count >= self.settings.batch_size:
-                formatter.print_info(f"Lote completado. Procesadas {len(results)} historias...")
+                logger.info(f"Lote completado. Procesadas {len(results)} historias...")
                 batch_count = 0
 
         batch_result = BatchResult(
@@ -112,6 +108,9 @@ class ProcessFilesUseCase:
             failed=sum(1 for r in results if not r.success),
             results=results
         )
+        
+        # Agregar stories al batch_result para poder mostrarlos después
+        batch_result.stories = stories
 
         return batch_result
 

@@ -279,7 +279,8 @@ class JiraClient:
             )
 
         except requests.exceptions.HTTPError as e:
-            error_msg = f"Error HTTP creando historia: {str(e)}"
+            # Log completo para archivo de log
+            logger.error("Error HTTP creando historia: %s", str(e))
             if hasattr(e, 'response') and e.response is not None:
                 try:
                     error_details = e.response.json()
@@ -287,21 +288,33 @@ class JiraClient:
                                  json.dumps(error_details, indent=2))
                     logger.error("Payload enviado: %s",
                                  json.dumps(issue_data, indent=2))
-                    error_msg += f" - Detalles: {error_details}"
                 except Exception:
                     logger.error("Response text: %s", e.response.text)
                     logger.error("Payload enviado: %s",
                                  json.dumps(issue_data, indent=2))
-            logger.error(error_msg)
+            
+            # Mensaje simplificado para usuario
+            if e.response.status_code == 400:
+                error_msg = "Error de validación en Jira (revisa los datos)"
+            elif e.response.status_code == 403:
+                error_msg = "Sin permisos para crear historias en este proyecto"
+            elif e.response.status_code == 404:
+                error_msg = "Proyecto o configuración no encontrada"
+            else:
+                error_msg = f"Error de conexión con Jira (HTTP {e.response.status_code})"
+            
             return ProcessResult(
                 success=False,
                 error_message=error_msg,
                 row_number=row_number
             )
         except Exception as e:
-            error_msg = f"Error creando historia: {str(e)}"
-            logger.error(error_msg)
+            # Log completo para archivo
+            logger.error("Error creando historia: %s", str(e))
             logger.error("Payload enviado: %s", json.dumps(issue_data, indent=2))
+            
+            # Mensaje simplificado para usuario
+            error_msg = "Error inesperado creando historia"
             return ProcessResult(
                 success=False,
                 error_message=error_msg,
@@ -352,21 +365,27 @@ class JiraClient:
                 created += 1
 
             except requests.exceptions.HTTPError as e:
-                error_msg = f"Error HTTP creando subtarea '{subtask_summary}': {str(e)}"
+                # Log detallado para archivo
+                logger.error("Error HTTP creando subtarea '%s': %s", subtask_summary, str(e))
                 if hasattr(e, 'response') and e.response is not None:
                     try:
                         error_details = e.response.json()
-                        error_msg += f" - {error_details}"
+                        logger.error("Detalles: %s", error_details)
                     except Exception:
                         pass
+                
+                # Mensaje simplificado para usuario
+                error_msg = f"Subtarea '{subtask_summary[:30]}...' falló"
                 errors.append(error_msg)
-                logger.error(error_msg)
                 failed += 1
 
             except Exception as e:
-                error_msg = f"Error creando subtarea '{subtask_summary}': {str(e)}"
+                # Log detallado para archivo
+                logger.error("Error creando subtarea '%s': %s", subtask_summary, str(e))
+                
+                # Mensaje simplificado para usuario
+                error_msg = f"Subtarea '{subtask_summary[:30]}...' falló"
                 errors.append(error_msg)
-                logger.error(error_msg)
                 failed += 1
 
         return created, failed, errors

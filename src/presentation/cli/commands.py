@@ -19,14 +19,20 @@ def setup_logging(settings: Settings, level: str = "INFO"):
 
     log_file = logs_dir / 'jira_batch.log'
 
+    # Configurar logging solo para archivo, no para consola
+    # La salida a consola se maneja por OutputFormatter
     logging.basicConfig(
         level=getattr(logging, level.upper()),
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
-            logging.StreamHandler(sys.stdout),
             logging.FileHandler(str(log_file), encoding='utf-8')
-        ]
+        ],
+        force=True  # Sobrescribir configuración existente
     )
+    
+    # Silenciar logs de requests en consola para reducir ruido
+    logging.getLogger('urllib3').setLevel(logging.WARNING)
+    logging.getLogger('requests').setLevel(logging.WARNING)
 
 
 @click.command()
@@ -63,12 +69,15 @@ def process_command(file, project, batch_size, dry_run, log_level):
             if not files_to_process:
                 formatter.print_error(f"No se encontraron archivos CSV/Excel en {settings.input_directory}")
                 return
+        
+        formatter.print_info(f"Iniciando procesamiento de {len(files_to_process)} archivo(s)...")
 
         results = process_use_case.execute(files_to_process)
         formatter.print_results(results)
 
     except Exception as e:
-        formatter.print_error(f"Error: {str(e)}")
+        formatter.print_error(f"Error inesperado: {str(e)}")
+        formatter.print_info("Revisa el archivo de log para más detalles técnicos")
         sys.exit(1)
 
 
