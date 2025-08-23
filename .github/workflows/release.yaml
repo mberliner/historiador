@@ -1,0 +1,236 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  trigger-ci:
+    name: Trigger CI Validation
+    runs-on: ubuntu-latest
+    outputs:
+      ci-run-id: ${{ steps.trigger.outputs.run-id }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Trigger CI workflow
+        id: trigger
+        uses: actions/github-script@v7
+        with:
+          script: |
+            console.log('Triggering CI workflow for tag validation...');
+            
+            const response = await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'ci.yaml',
+              ref: context.ref,
+              inputs: {
+                triggered_by: 'release'
+              }
+            });
+            
+            console.log('CI workflow dispatch successful');
+            
+            // Esperar un poco para que el workflow se inicie
+            await new Promise(resolve => setTimeout(resolve, 10000));
+            
+            // Buscar el run que acabamos de crear
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'ci.yaml',
+              head_sha: context.sha,
+              per_page: 5
+            });
+            
+            console.log(`Found ${runs.data.total_count} CI runs for this commit`);
+            
+            if (runs.data.total_count > 0) {
+              // Buscar el run más reciente (debería ser el que acabamos de disparar)
+              const latestRun = runs.data.workflow_runs[0];
+              console.log(`Latest CI run ID: ${latestRun.id}, Status: ${latestRun.status}`);
+              core.setOutput('run-id', latestRun.id);
+            } else {
+              core.setFailed('No CI runs found after triggering');
+            }
+
+  wait-for-ci:
+    name: Wait for CI Completion
+    runs-on: ubuntu-latest
+    needs: trigger-ci
+    
+    steps:
+      - name: Wait for CI to complete
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runId = ${{ needs.trigger-ci.outputs.ci-run-id }};
+            console.log(`Waiting for CI run ${runId} to complete...`);
+            
+            let attempts = 0;
+            const maxAttempts = 40; // 20 minutes max (40 * 30s)
+            
+            while (attempts < maxAttempts) {
+              const { data: run } = await github.rest.actions.getWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: runId
+              });
+              
+              console.log(`Attempt ${attempts + 1}: CI Status: ${run.status}, Conclusion: ${run.conclusion}`);
+              
+              if (run.status === 'completed') {
+                if (run.conclusion === 'success') {
+                  console.log('✅ CI completed successfully! Proceeding with release build...');
+                  break;
+                } else {
+                  core.setFailed(`❌ CI failed with conclusion: ${run.conclusion}. Release cancelled.`);
+                  return;
+                }
+              }
+              
+              if (run.status === 'cancelled' || run.status === 'failed') {
+                core.setFailed(`❌ CI workflow ${run.status}. Release cancelled.`);
+                return;
+              }
+              
+              attempts++;
+              // Esperar 30 segundos antes de verificar nuevamente
+              await new Promise(resolve => setTimeout(resolve, 30000));
+            }
+            
+            if (attempts >= maxAttempts) {
+              core.setFailed('❌ CI validation timed out after 20 minutes. Release cancelled.');
+            }
+
+  build:
+    name: Build executables for multiple platforms
+    runs-on: ${{ matrix.os }}
+    needs: wait-for-ci
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            executable_name: historiador-linux
+          - os: windows-latest
+            platform: windows
+            executable_name: historiador-windows.exe
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.8'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            %LOCALAPPDATA%\pip\Cache
+          key: ${{ runner.os }}-pip-release-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-release-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build executable with PyInstaller (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          pyinstaller --onefile --name historiador-linux --add-data=".env.example:." src/main.py --clean
+
+      - name: Build executable with PyInstaller (Windows)
+        if: matrix.platform == 'windows'
+        run: |
+          pyinstaller --onefile --name historiador-windows --add-data=".env.example;." src/main.py --clean
+
+      - name: Test executable (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          chmod +x dist/historiador-linux
+          ./dist/historiador-linux --help
+
+      - name: Test executable (Windows)
+        if: matrix.platform == 'windows'
+        run: |
+          .\dist\historiador-windows.exe --help
+
+      - name: Upload executable as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.executable_name }}
+          path: dist/${{ matrix.executable_name }}
+          retention-days: 90
+
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Display downloaded files
+        run: |
+          echo "📦 Downloaded artifacts:"
+          ls -la artifacts/
+          find artifacts/ -type f -exec ls -la {} \;
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          body: |
+            ## 🚀 Historiador ${{ github.ref_name }}
+            
+            Aplicación de línea de comandos para importar historias de usuario desde CSV/Excel hacia Jira.
+            
+            ### 📥 Descargas
+            - **Linux**: historiador-linux
+            - **Windows**: historiador-windows.exe
+            
+            ### ✅ Validación
+            Este release pasó todos los quality gates:
+            - PyLint score ≥ 8.0
+            - Test coverage ≥ 80%
+            - All unit tests passed
+            
+            ### 📖 Uso
+            ```bash
+            # Linux
+            chmod +x historiador-linux
+            ./historiador-linux --help
+            
+            # Windows
+            historiador-windows.exe --help
+            ```
+          files: |
+            artifacts/historiador-linux/historiador-linux
+            artifacts/historiador-windows.exe/historiador-windows.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

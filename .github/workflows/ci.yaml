@@ -11,6 +11,12 @@ on:
     paths-ignore:
       - '*.md'
       - '**/*.md'
+  workflow_dispatch:
+    inputs:
+      triggered_by:
+        description: 'Who triggered this workflow'
+        required: false
+        default: 'manual'
 
 jobs:
   test:
