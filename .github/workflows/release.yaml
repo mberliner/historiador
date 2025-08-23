@@ -116,10 +116,39 @@ jobs:
               core.setFailed('❌ CI validation timed out after 20 minutes. Release cancelled.');
             }
 
+  validate-latest-tag:
+    name: Validate Latest Tag
+    runs-on: ubuntu-latest
+    needs: wait-for-ci
+    outputs:
+      is-latest: ${{ steps.check.outputs.is-latest }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all tags
+          
+      - name: Check if current tag is latest
+        id: check
+        run: |
+          echo "Current tag: ${{ github.ref_name }}"
+          LATEST_TAG=$(git tag --sort=-version:refname | head -1)
+          echo "Latest tag in repo: $LATEST_TAG"
+          
+          if [ "${{ github.ref_name }}" = "$LATEST_TAG" ]; then
+            echo "✅ Processing latest tag: ${{ github.ref_name }}"
+            echo "is-latest=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Skipping: ${{ github.ref_name }} is not the latest tag ($LATEST_TAG)"
+            echo "is-latest=false" >> $GITHUB_OUTPUT
+          fi
+
   build:
     name: Build executables for multiple platforms
     runs-on: ${{ matrix.os }}
-    needs: wait-for-ci
+    needs: validate-latest-tag
+    if: needs.validate-latest-tag.outputs.is-latest == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -190,7 +219,8 @@ jobs:
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: build
+    needs: [validate-latest-tag, build]
+    if: needs.validate-latest-tag.outputs.is-latest == 'true'
     permissions:
       contents: write
 

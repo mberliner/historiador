@@ -145,19 +145,25 @@ upload_package:
     PACKAGE_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/historiador/${CI_COMMIT_TAG}/historiador"
     
   script:
+    - echo "=== LATEST TAG VALIDATION ==="
+    - echo "Current tag:" ${CI_COMMIT_TAG}
+    - git fetch --tags origin
+    - LATEST_TAG=$(git tag --sort=-version:refname | head -1)
+    - echo "Latest tag in repo:" ${LATEST_TAG}
+    - |
+      if [ "${CI_COMMIT_TAG}" != "${LATEST_TAG}" ]; then
+        echo "❌ Skipping: ${CI_COMMIT_TAG} is not the latest tag (${LATEST_TAG})"
+        exit 0
+      fi
+    - echo "✅ Processing latest tag:" ${CI_COMMIT_TAG}
     - echo "=== UPLOAD DIAGNOSTICS ==="
-    - echo "File to upload:"
     - ls -la dist/historiador
     - echo "Target URL:" ${PACKAGE_URL}
-    - echo "Job Token:" ${CI_JOB_TOKEN:0:20}...
-    - echo ""
     - echo "=== STARTING UPLOAD ==="
     - curl -v -H JOB-TOKEN:${CI_JOB_TOKEN} --upload-file dist/historiador ${PACKAGE_URL}
-    - echo ""
     - echo "=== VERIFYING UPLOAD ==="
     - sleep 3
     - curl -I --fail -H JOB-TOKEN:${CI_JOB_TOKEN} ${PACKAGE_URL}
-    - echo ""
     - echo "=== UPLOAD COMPLETE ==="
   
   rules:
@@ -173,7 +179,17 @@ release_job:
     - upload_package
   
   script:
-    - echo "Creating release for $CI_COMMIT_TAG"
+    - echo "=== LATEST TAG VALIDATION ==="
+    - echo "Current tag:" ${CI_COMMIT_TAG}
+    - git fetch --tags origin
+    - LATEST_TAG=$(git tag --sort=-version:refname | head -1)
+    - echo "Latest tag in repo:" ${LATEST_TAG}
+    - |
+      if [ "${CI_COMMIT_TAG}" != "${LATEST_TAG}" ]; then
+        echo "❌ Skipping release: ${CI_COMMIT_TAG} is not the latest tag (${LATEST_TAG})"
+        exit 0
+      fi
+    - echo "✅ Creating release for latest tag:" ${CI_COMMIT_TAG}
     
   release:
     tag_name: '$CI_COMMIT_TAG'
