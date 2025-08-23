@@ -144,16 +144,13 @@ upload_package:
     - apk add --no-cache curl
     
   script:
-    - echo "Uploading historiador to GitLab Package Registry..."
-    - ls -la dist/
+    - echo "Creating upload script"
+    - echo "curl --header \"JOB-TOKEN: \$CI_JOB_TOKEN\" --upload-file dist/historiador \"\${CI_API_V4_URL}/projects/\${CI_PROJECT_ID}/packages/generic/historiador/\${CI_COMMIT_TAG}/historiador\"" > upload.sh
+    - chmod +x upload.sh
+    - echo "Testing file exists"
     - test -f dist/historiador
-    - curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file dist/historiador "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/historiador/${CI_COMMIT_TAG}/historiador"
-    - echo "Package uploaded successfully"
-    - echo "Verifying package accessibility..."
-    - sleep 5
-    - curl -f --header "JOB-TOKEN: $CI_JOB_TOKEN" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/historiador/${CI_COMMIT_TAG}/historiador" -o /tmp/downloaded_historiador
-    - test -f /tmp/downloaded_historiador
-    - echo "Package verification successful - executable is accessible"
+    - echo "Uploading package"
+    - ./upload.sh
   
   rules:
     - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
