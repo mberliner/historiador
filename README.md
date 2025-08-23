@@ -130,16 +130,30 @@ La aplicación distingue automáticamente:
 
 ## 📖 Documentación Completa
 
-Para información detallada, ejemplos avanzados y troubleshooting, consulta [DOCS.md](DOCS.md).
+- **[DOCS.md](DOCS.md)**: Ejemplos avanzados, troubleshooting y configuración detallada
+- **[BUILD_OPTIMIZATION.md](BUILD_OPTIMIZATION.md)**: Detalles de optimización del ejecutable (83MB → 51MB)
+- **[CLAUDE.md](CLAUDE.md)**: Contexto técnico completo para desarrollo
 
 ## 🛠️ Generar Ejecutable
 
+### Recomendado (51MB optimizado):
 ```bash
 pip install pyinstaller
+pyinstaller historiador-clean.spec --clean
+```
+
+### Alternativas:
+```bash
+# Comando directo (53MB)
+pyinstaller --onefile --name historiador \
+  --exclude-module pytest --exclude-module pylint --exclude-module black \
+  --add-data=".env.example:." src/main.py --clean
+
+# Completo con dev tools (83MB)
 python -m PyInstaller --onefile --name historiador --add-data=".env.example:." src/main.py --clean
 ```
 
-El ejecutable se genera en `dist/historiador` (Linux/Mac) o `dist/historiador.exe` (Windows).
+El ejecutable optimizado se genera en `dist/historiador` (Linux/Mac) o `dist/historiador.exe` (Windows).
 
 ## 📝 Obtener API Token
 
@@ -150,4 +164,4 @@ El ejecutable se genera en `dist/historiador` (Linux/Mac) o `dist/historiador.ex
 ---
 
 **Arquitectura**: Clean Architecture con 4 capas (Presentation, Application, Domain, Infrastructure)  
-**Calidad**: PyLint Score 8.64/10
+**Calidad**: PyLint Score 8.96/10 | Test Coverage 80.58% | Ejecutable optimizado 51MB

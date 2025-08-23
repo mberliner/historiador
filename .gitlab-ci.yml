@@ -99,7 +99,7 @@ build:
     # Equivalente exacto a "Build executable with PyInstaller"
     - echo "🏗️ Building executable with PyInstaller..."
     - set -e  # Exit on any error
-    - pyinstaller --onefile --name historiador --add-data=".env.example:." src/main.py --clean
+    - pyinstaller historiador-clean.spec --clean
     # Test that executable was created
     - test -f dist/historiador
     

@@ -24,6 +24,7 @@ MANIFEST
 # Testing
 .coverage
 .coverage.*
+coverage.xml
 htmlcov/
 .tox/
 .pytest_cache/
@@ -72,6 +73,8 @@ entrada/*.xls
 
 # PyInstaller
 *.spec
+# Except our clean build spec
+!historiador-clean.spec
 
 # Distribution
 dist/

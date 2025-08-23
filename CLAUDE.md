@@ -23,7 +23,17 @@ python src/main.py diagnose -p PROJECT_KEY
 # Modo dry-run para pruebas, no modifica en Jira
 python src/main.py -p PROJECT_KEY --dry-run
 
-# Generar ejecutable
+# Generar ejecutable optimizado (RECOMENDADO: ~51MB)
+pyinstaller historiador-clean.spec --clean
+
+# Generar ejecutable con comando directo (alternativa: ~53MB)
+pyinstaller --onefile --name historiador \
+  --exclude-module pytest --exclude-module pylint --exclude-module black \
+  --exclude-module coverage --exclude-module isort --exclude-module responses \
+  --exclude-module freezegun --exclude-module faker \
+  --add-data=".env.example:." src/main.py --clean
+
+# Generar ejecutable completo (incluye herramientas dev - más pesado: ~83MB)
 python -m PyInstaller --onefile --name historiador --add-data=".env.example:." src/main.py --clean
 ```
 
@@ -164,8 +174,8 @@ pip install -r requirements-dev.txt
 pylint src/ --fail-under=8.0 --output-format=text
 pytest tests/unit/ --cov=src --cov-report=xml --cov-fail-under=80
 
-# Build validation
-pyinstaller --onefile --name historiador --add-data=".env.example:." src/main.py --clean
+# Build validation (genera ejecutable optimizado 51MB)
+pyinstaller historiador-clean.spec --clean
 ./dist/historiador --help
 ```
 
@@ -231,7 +241,7 @@ git push origin feature/improvement
 1. ✅ PyLint score ≥ 8.0
 2. ✅ Test coverage ≥ 80%  
 3. ✅ All unit tests pass
-4. ✅ Executable builds and runs
+4. ✅ Executable builds and runs (51MB optimized)
 5. ✅ 1 code review approval
 ```
 
@@ -298,3 +308,135 @@ historiador/
 │   └── main.py                       # Punto de entrada (45 líneas)
 └── dist/                             # Ejecutable generado con PyInstaller
 ```
+
+## Agentes Personalizados
+
+Los siguientes "agentes" están definidos como secuencias de comandos especializadas que Claude debe ejecutar cuando el usuario las solicite:
+
+### qa-agent
+**Comando**: `qa-agent`
+**Propósito**: Agente de calidad completa para validación de código Python
+
+**Secuencia de ejecución**:
+1. Ejecutar `pylint src/ --fail-under=8.0` (validación de calidad)
+2. Ejecutar `pytest tests/unit/ --cov=src --cov-fail-under=80` (tests con cobertura)
+3. Si hay errores de pylint, mostrar y sugerir correcciones
+4. Si hay tests fallando, analizar y sugerir correcciones
+5. Verificar que PyInstaller puede generar ejecutable
+6. Re-ejecutar hasta que todos los checks pasen
+7. Generar reporte final con estadísticas de cobertura y calidad
+
+**Criterios de éxito**: 
+- PyLint score ≥8.0
+- Cobertura de tests ≥80%
+- Todos los tests pasan
+- Ejecutable generado correctamente
+
+### build-agent
+**Comando**: `build-agent`
+**Propósito**: Agente de construcción y validación de ejecutable
+
+**Secuencia de ejecución**:
+1. Ejecutar `qa-agent` primero (prerequisito)
+2. Limpiar build anterior: `rm -rf build/ dist/`
+3. Generar ejecutable: `pyinstaller --onefile --name historiador --add-data=".env.example:." src/main.py --clean`
+4. Verificar que el ejecutable se crea en `dist/historiador`
+5. Probar comando básico: `./dist/historiador --help`
+6. Ejecutar test de conexión: `./dist/historiador test-connection`
+7. Validar comando validate: `./dist/historiador validate -f entrada/test_*.csv`
+8. Generar reporte de build con tamaño del ejecutable
+
+**Criterios de éxito**:
+- qa-agent pasa completamente
+- Ejecutable generado sin errores
+- Comandos básicos funcionan correctamente
+- Tests de funcionalidad básica pasan
+
+### release-agent [VERSION]
+**Comando**: `release-agent v1.2.3`
+**Propósito**: Agente de preparación completa de release
+
+**Secuencia de ejecución**:
+1. Ejecutar `build-agent` (incluye qa-agent)
+2. Verificar que la rama actual esté limpia (git status)
+3. Actualizar versión en archivos relevantes si existen
+4. Ejecutar suite completa de tests de aplicación:
+   - `python src/main.py test-connection`
+   - `python src/main.py validate -f entrada/test_*.csv`
+   - `python src/main.py diagnose -p TEST`
+5. Crear tag git: `git tag -a {VERSION} -m "Release {VERSION}"`
+6. Generar o actualizar CHANGELOG con cambios desde último tag
+7. Crear commit de release si hay cambios de versión
+8. Mostrar resumen final para revisión antes de push
+
+**Criterios de éxito**:
+- build-agent pasa completamente
+- Todos los comandos de aplicación funcionan
+- Tag git creado correctamente
+- CHANGELOG actualizado
+
+### coverage-agent [THRESHOLD]
+**Comando**: `coverage-agent 80`
+**Propósito**: Agente especializado en análisis de cobertura de tests
+
+**Secuencia de ejecución**:
+1. Ejecutar tests con cobertura detallada: `pytest tests/unit/ --cov=src --cov-report=html --cov-report=xml --cov-report=term-missing`
+2. Generar reporte HTML en `htmlcov/index.html`
+3. Analizar archivos con cobertura insuficiente (excluye main.py)
+4. Identificar funciones/métodos sin tests en lógica de negocio
+5. Sugerir tests específicos para áreas no cubiertas
+6. Si el threshold no se alcanza, crear TODOs específicos
+7. Generar reporte detallado con métricas por capa de Clean Architecture
+
+**Nota sobre exclusiones**:
+- `src/main.py` se excluye porque es punto de entrada (45 líneas)
+- Los tests (`tests/`) se excluyen porque son código de testing
+- Se mide cobertura de lógica de negocio en capas: application, domain, infrastructure, presentation
+
+**Criterios de éxito**:
+- Cobertura total ≥ threshold especificado (default: 80%)
+- Reporte HTML generado
+- Identificación clara de gaps de testing
+
+### fix-agent [TIPO]
+**Comando**: `fix-agent lint` o `fix-agent tests` o `fix-agent all`
+**Propósito**: Agente de reparación automática de problemas comunes
+
+**Secuencia de ejecución**:
+Para `lint`:
+1. Ejecutar `pylint src/` y capturar errores
+2. Analizar warnings y errores comunes de Python
+3. Corregir problemas automáticamente (imports no usados, líneas largas, etc.)
+4. Re-ejecutar hasta alcanzar score ≥8.0
+
+Para `tests`:
+1. Ejecutar `pytest tests/unit/` y capturar fallos
+2. Analizar errores de importación y runtime
+3. Sugerir correcciones específicas para cada fallo
+4. Aplicar fixes automáticos para problemas comunes
+5. Si existen test fallidos corregir, no es aceptable un test fallando
+
+Para `all`:
+1. Ejecutar ambos secuencialmente
+2. Asegurar que todas las correcciones son compatibles
+3. Validar que el código sigue funcionando correctamente
+
+**Criterios de éxito**:
+- Sin errores críticos de pylint
+- Tests ejecutables y passing
+- Código funcionalmente equivalente
+
+## Uso de Agentes
+
+Para usar cualquier agente, simplemente escribir su nombre como comando:
+
+```bash
+# Ejemplos de uso
+qa-agent
+build-agent  
+release-agent v1.5.0
+coverage-agent 80
+fix-agent all
+```
+
+Los agentes son ejecutados secuencialmente y reportan progreso usando el sistema TodoWrite para tracking de tareas.
