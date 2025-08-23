@@ -143,17 +143,10 @@ release_job:
   script:
     - echo "🚀 Creating release for $CI_COMMIT_TAG"
     - echo "📦 Validating artifacts..."
-    - ls -la artifacts/ || echo "No artifacts directory found"
+    - ls -la . || true
     - find . -name "historiador*" -type f -ls || echo "No historiador executable found"
-    - |
-      if [ ! -f "dist/historiador" ]; then
-        echo "❌ ERROR: dist/historiador not found!"
-        echo "Available files:"
-        find . -type f -name "*historiador*" -ls 2>/dev/null || echo "No historiador files found anywhere"
-        exit 1
-      fi
-    - echo "✅ Executable found: $(ls -la dist/historiador)"
-    - echo "🔗 Testing executable..."
+    - test -f "dist/historiador" || (echo "❌ ERROR: dist/historiador not found!" && find . -type f -name "*historiador*" -ls && exit 1)
+    - echo "✅ Executable found at $(ls -la dist/historiador)"
     - chmod +x dist/historiador
     - ./dist/historiador --help || echo "⚠️ WARNING: Executable test failed"
     
