@@ -1,9 +1,10 @@
 # GitLab CI/CD - Equivalente exacto a GitHub Actions
-# Triggers: Push a master + Merge Requests
+# Triggers: Push a master + Merge Requests + Tags
 workflow:
   rules:
     - if: $CI_COMMIT_BRANCH == "master"
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
 
 stages:
   - test

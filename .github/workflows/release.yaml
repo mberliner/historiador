@@ -166,8 +166,8 @@ jobs:
         if: matrix.platform == 'windows'
         run: |
           pyinstaller historiador-clean.spec --clean
-          # Test that executable was created (Windows path)
-          if not exist dist\${{ env.WINDOWS_EXECUTABLE }} exit 1
+          # Test that executable was created (PowerShell syntax)
+          if (-not (Test-Path "dist\${{ env.WINDOWS_EXECUTABLE }}")) { exit 1 }
 
       - name: Test executable (Linux)
         if: matrix.platform == 'linux'
