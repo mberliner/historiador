@@ -669,7 +669,7 @@ class TestCreateUserStory:
             result = client.create_user_story(story, row_number=3)
             
             assert result.success is False
-            assert "Error HTTP creando historia" in result.error_message
+            assert "Error de validación en Jira" in result.error_message
             assert result.row_number == 3
 
     def test_create_user_story_rollback_on_subtask_failure(self):
@@ -808,7 +808,7 @@ class TestCreateSubtasks:
             assert failed == 1
             assert len(errors) == 1
             assert "Test subtask" in errors[0]
-            assert "errorMessages" in errors[0]
+            assert "falló" in errors[0]
 
     def test_create_subtasks_general_exception(self):
         """Test general exception handling."""
@@ -823,7 +823,7 @@ class TestCreateSubtasks:
             assert created == 0
             assert failed == 1
             assert len(errors) == 1
-            assert "Connection timeout" in errors[0]
+            assert "falló" in errors[0]
 
     def test_create_subtasks_empty_list(self):
         """Test with empty subtasks list."""

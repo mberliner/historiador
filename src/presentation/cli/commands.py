@@ -2,14 +2,10 @@
 import logging
 import sys
 from pathlib import Path
-from typing import List
 
 import click
 
 from src.infrastructure.settings import Settings
-from src.infrastructure.file_system.file_processor import FileProcessor
-from src.infrastructure.jira.jira_client import JiraClient
-from src.domain.entities.batch_result import BatchResult
 
 
 def setup_logging(settings: Settings, level: str = "INFO"):
@@ -29,7 +25,7 @@ def setup_logging(settings: Settings, level: str = "INFO"):
         ],
         force=True  # Sobrescribir configuración existente
     )
-    
+
     # Silenciar logs de requests en consola para reducir ruido
     logging.getLogger('urllib3').setLevel(logging.WARNING)
     logging.getLogger('requests').setLevel(logging.WARNING)
@@ -69,7 +65,7 @@ def process_command(file, project, batch_size, dry_run, log_level):
             if not files_to_process:
                 formatter.print_error(f"No se encontraron archivos CSV/Excel en {settings.input_directory}")
                 return
-        
+
         formatter.print_info(f"Iniciando procesamiento de {len(files_to_process)} archivo(s)...")
 
         results = process_use_case.execute(files_to_process)
@@ -79,6 +75,7 @@ def process_command(file, project, batch_size, dry_run, log_level):
         formatter.print_error(f"Error inesperado: {str(e)}")
         formatter.print_info("Revisa el archivo de log para más detalles técnicos")
         sys.exit(1)
+
 
 
 @click.command()

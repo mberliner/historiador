@@ -9,12 +9,12 @@ logger = logging.getLogger(__name__)
 
 def get_issue_types(session: requests.Session, base_url: str, project_key: str) -> List[Dict[str, Any]]:
     """Obtiene los tipos de issue disponibles para un proyecto.
-    
+
     Args:
         session: Sesión de requests configurada
         base_url: URL base de Jira
         project_key: Key del proyecto
-        
+
     Returns:
         Lista de tipos de issue disponibles
     """
@@ -39,7 +39,7 @@ def get_issue_types(session: requests.Session, base_url: str, project_key: str) 
 
 def handle_http_error(e: Exception, logger_instance: logging.Logger) -> None:
     """Maneja errores HTTP de Jira de forma consistente.
-    
+
     Args:
         e: Excepción capturada
         logger_instance: Logger a usar para el error
@@ -50,7 +50,7 @@ def handle_http_error(e: Exception, logger_instance: logging.Logger) -> None:
             logger_instance.error("Detalles del error: %s",
                                 json.dumps(error_details, indent=2))
         except Exception:
-            logger_instance.error("Error HTTP %s: %s", 
+            logger_instance.error("Error HTTP %s: %s",
                                 e.response.status_code, e.response.text)
     else:
         logger_instance.error("Error de conexión: %s", str(e))
@@ -58,12 +58,12 @@ def handle_http_error(e: Exception, logger_instance: logging.Logger) -> None:
 
 def validate_issue_exists(session: requests.Session, base_url: str, issue_key: str) -> bool:
     """Valida que un issue existe en Jira.
-    
+
     Args:
         session: Sesión de requests configurada
         base_url: URL base de Jira
         issue_key: Key del issue a validar
-        
+
     Returns:
         True si el issue existe, False en caso contrario
     """

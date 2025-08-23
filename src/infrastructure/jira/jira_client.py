@@ -292,7 +292,7 @@ class JiraClient:
                     logger.error("Response text: %s", e.response.text)
                     logger.error("Payload enviado: %s",
                                  json.dumps(issue_data, indent=2))
-            
+
             # Mensaje simplificado para usuario
             if e.response.status_code == 400:
                 error_msg = "Error de validación en Jira (revisa los datos)"
@@ -302,7 +302,7 @@ class JiraClient:
                 error_msg = "Proyecto o configuración no encontrada"
             else:
                 error_msg = f"Error de conexión con Jira (HTTP {e.response.status_code})"
-            
+
             return ProcessResult(
                 success=False,
                 error_message=error_msg,
@@ -312,7 +312,7 @@ class JiraClient:
             # Log completo para archivo
             logger.error("Error creando historia: %s", str(e))
             logger.error("Payload enviado: %s", json.dumps(issue_data, indent=2))
-            
+
             # Mensaje simplificado para usuario
             error_msg = "Error inesperado creando historia"
             return ProcessResult(
@@ -373,7 +373,7 @@ class JiraClient:
                         logger.error("Detalles: %s", error_details)
                     except Exception:
                         pass
-                
+
                 # Mensaje simplificado para usuario
                 error_msg = f"Subtarea '{subtask_summary[:30]}...' falló"
                 errors.append(error_msg)
@@ -382,7 +382,7 @@ class JiraClient:
             except Exception as e:
                 # Log detallado para archivo
                 logger.error("Error creando subtarea '%s': %s", subtask_summary, str(e))
-                
+
                 # Mensaje simplificado para usuario
                 error_msg = f"Subtarea '{subtask_summary[:30]}...' falló"
                 errors.append(error_msg)

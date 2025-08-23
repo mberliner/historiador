@@ -66,12 +66,13 @@ class TestFileHeaderPrinting:
             formatter.print_file_header(1, 3, "test_file.csv")
             
             expected_calls = [
-                (("\n" + "="*60,), {}),
-                (("PROCESANDO ARCHIVO 1/3: test_file.csv",), {}),
-                (("="*60,), {})
+                (("\n" + "="*70,), {}),
+                (("PROCESANDO ARCHIVO [1/3]: test_file.csv",), {}),
+                (("="*70,), {}),
+                (("Iniciando procesamiento...\n",), {})
             ]
             
-            assert mock_echo.call_count == 3
+            assert mock_echo.call_count == 4
             actual_calls = mock_echo.call_args_list
             for i, (expected_call, actual_call) in enumerate(zip(expected_calls, actual_calls)):
                 assert actual_call[0] == expected_call[0], f"Call {i+1} args mismatch"
@@ -92,7 +93,8 @@ class TestFileHeaderPrinting:
                 
                 # Check that the file info is in one of the calls
                 calls_text = " ".join([str(call[0][0]) for call in mock_echo.call_args_list])
-                assert f"ARCHIVO {file_index}/{total_files}: {file_name}" in calls_text
+                assert f"[{file_index}/{total_files}]" in calls_text
+                assert file_name in calls_text
 
 
 class TestStoryResultPrinting:
@@ -113,7 +115,9 @@ class TestStoryResultPrinting:
         with patch('src.presentation.formatters.output_formatter.click.echo') as mock_echo:
             formatter.print_story_result(result, "Test Story Title")
             
-            mock_echo.assert_called_once_with("[OK] Fila 1: TEST-123 - Test Story Title")
+            calls = [call[0][0] for call in mock_echo.call_args_list]
+            assert "Historia de Usuario creada: TEST-123" in calls
+            assert "  Titulo: Test Story Title" in calls
 
     def test_print_story_result_success_with_feature_created(self):
         """Test printing successful result with created feature."""
@@ -137,10 +141,9 @@ class TestStoryResultPrinting:
         with patch('src.presentation.formatters.output_formatter.click.echo') as mock_echo:
             formatter.print_story_result(result, "Test Story with Feature")
             
-            assert mock_echo.call_count == 2
             calls = [call[0][0] for call in mock_echo.call_args_list]
-            assert "[OK] Fila 2: TEST-123 - Test Story with Feature" in calls
-            assert "    + Feature creada: TEST-100" in calls
+            assert "Historia de Usuario creada: TEST-123" in calls
+            assert "  Feature CREADA: TEST-100" in calls
 
     def test_print_story_result_success_with_existing_parent(self):
         """Test printing successful result with existing parent."""
@@ -164,10 +167,9 @@ class TestStoryResultPrinting:
         with patch('src.presentation.formatters.output_formatter.click.echo') as mock_echo:
             formatter.print_story_result(result, "Test Story with Parent")
             
-            assert mock_echo.call_count == 2
             calls = [call[0][0] for call in mock_echo.call_args_list]
-            assert "[OK] Fila 3: TEST-123 - Test Story with Parent" in calls
-            assert "    = Parent utilizado: TEST-EXISTING" in calls
+            assert "Historia de Usuario creada: TEST-123" in calls
+            assert "  Feature UTILIZADA: TEST-EXISTING" in calls
 
     def test_print_story_result_success_with_subtasks(self):
         """Test printing successful result with subtasks."""
@@ -184,20 +186,10 @@ class TestStoryResultPrinting:
         with patch('src.presentation.formatters.output_formatter.click.echo') as mock_echo:
             formatter.print_story_result(result, "Test Story with Subtasks")
             
-            assert mock_echo.call_count == 3
             calls = [call[0][0] for call in mock_echo.call_args_list]
-            assert "[OK] Fila 4: TEST-123 - Test Story with Subtasks" in calls
-            assert "    + 3 subtarea(s) creada(s)" in calls
-            
-            # Check that failed subtasks are printed with err=True
-            failed_call = None
-            for call in mock_echo.call_args_list:
-                if "subtarea(s) fallaron" in str(call[0][0]):
-                    failed_call = call
-                    break
-            
-            assert failed_call is not None
-            assert failed_call[1].get('err') is True
+            assert "Historia de Usuario creada: TEST-123" in calls
+            assert "  Subtareas creadas: 3" in calls
+            assert "  Subtareas fallidas: 1" in calls
 
     def test_print_story_result_failure(self):
         """Test printing failed story result."""
@@ -209,10 +201,11 @@ class TestStoryResultPrinting:
             row_number=5
         )
         
-        with patch.object(formatter, 'print_error') as mock_print_error:
+        with patch('src.presentation.formatters.output_formatter.click.echo') as mock_echo:
             formatter.print_story_result(result, "Failed Story")
             
-            mock_print_error.assert_called_once_with("Fila 5: Parent key TEST-999 does not exist")
+            calls = [call[0][0] for call in mock_echo.call_args_list]
+            assert "ERROR - Fila 5: Parent key TEST-999 does not exist" in calls
 
 
 class TestBatchSummaryPrinting:
@@ -232,18 +225,12 @@ class TestBatchSummaryPrinting:
         with patch('src.presentation.formatters.output_formatter.click.echo') as mock_echo:
             formatter.print_batch_summary("test_file.csv", batch_result)
             
-            expected_calls = [
-                "\nRESUMEN DE test_file.csv:",
-                "Total procesadas: 10",
-                "Exitosas: 8",
-                "Fallidas: 2"
-            ]
-            
-            assert mock_echo.call_count == len(expected_calls)
-            actual_calls = [call[0][0] for call in mock_echo.call_args_list]
-            
-            for expected, actual in zip(expected_calls, actual_calls):
-                assert actual == expected
+            calls = [call[0][0] for call in mock_echo.call_args_list]
+            assert "RESUMEN DEL ARCHIVO: test_file.csv" in calls
+            assert "Historias de Usuario:" in calls
+            assert "  - Creadas: 8" in calls
+            assert "  - Fallidas: 2" in calls
+            assert "\nEstado: 80% exitoso" in calls
 
     def test_print_batch_errors(self):
         """Test printing batch errors."""
@@ -336,33 +323,133 @@ class TestBatchSummaryPrinting:
         with patch('src.presentation.formatters.output_formatter.click.echo') as mock_echo:
             formatter.print_general_summary(3, overall_result)
             
-            expected_calls = [
-                "\n" + "="*60,
-                "RESUMEN GENERAL",
-                "="*60,
-                "Archivos procesados: 3",
-                "Total historias procesadas: 25",
-                "Total exitosas: 20",
-                "Total fallidas: 5"
-            ]
+            calls = [call[0][0] for call in mock_echo.call_args_list]
+            assert "RESUMEN FINAL DE PROCESAMIENTO" in calls
+            assert "Archivos procesados: 3" in calls
+            assert "  - Total creadas: 20" in calls
+            assert "  - Total fallidas: 5" in calls
+            assert "\nTasa de exito: 80%" in calls
+
+
+class TestPrintResultsMethod:
+    """Test print_results method with full scenarios."""
+
+    def test_print_results_with_successful_file(self):
+        """Test print_results with successful file processing."""
+        formatter = OutputFormatter()
+        
+        # Create mock story
+        mock_story = Mock()
+        mock_story.titulo = "Test Story Title"
+        
+        # Create mock result
+        mock_result = ProcessResult(
+            success=True,
+            jira_key="TEST-123",
+            row_number=1,
+            subtasks_created=2,
+            subtasks_failed=0
+        )
+        
+        # Create mock batch result with stories
+        mock_batch = BatchResult(
+            total_processed=1,
+            successful=1,
+            failed=0,
+            results=[mock_result],
+            stories=[mock_story]
+        )
+        
+        test_data = {
+            'total_files': 1,
+            'file_results': [{
+                'file_index': 1,
+                'file_name': 'test.csv',
+                'batch_result': mock_batch
+            }],
+            'overall_result': mock_batch
+        }
+        
+        with patch('src.presentation.formatters.output_formatter.click.echo') as mock_echo:
+            formatter.print_results(test_data)
             
-            assert mock_echo.call_count == len(expected_calls)
-            actual_calls = [call[0][0] for call in mock_echo.call_args_list]
+            calls = [call[0][0] for call in mock_echo.call_args_list]
+            assert any("PROCESANDO ARCHIVO [1/1]: test.csv" in str(call) for call in calls)
+            assert any("Historia de Usuario creada: TEST-123" in str(call) for call in calls)
+
+    def test_print_results_with_file_error(self):
+        """Test print_results with file processing error."""
+        formatter = OutputFormatter()
+        
+        test_data = {
+            'total_files': 1,
+            'file_results': [{
+                'file_index': 1,
+                'file_name': 'error.csv',
+                'error': 'File processing failed'
+            }],
+            'overall_result': None
+        }
+        
+        with patch.object(formatter, 'print_file_header'), \
+             patch.object(formatter, 'print_error') as mock_error:
+            formatter.print_results(test_data)
             
-            for expected, actual in zip(expected_calls, actual_calls):
-                assert actual == expected
+            mock_error.assert_called_once_with("Error procesando archivo: File processing failed")
+
+    def test_print_results_with_batch_without_stories(self):
+        """Test print_results with batch result without stories attribute."""
+        formatter = OutputFormatter()
+        
+        mock_result = ProcessResult(
+            success=True,
+            jira_key="TEST-456",
+            row_number=1,
+            subtasks_created=0,
+            subtasks_failed=0
+        )
+        
+        mock_batch = BatchResult(
+            total_processed=1,
+            successful=1,
+            failed=0,
+            results=[mock_result]
+        )
+        # Explicitly no stories attribute
+        
+        test_data = {
+            'total_files': 1,
+            'file_results': [{
+                'file_index': 1,
+                'file_name': 'nostories.csv',
+                'batch_result': mock_batch
+            }],
+            'overall_result': mock_batch
+        }
+        
+        with patch('src.presentation.formatters.output_formatter.click.echo') as mock_echo:
+            formatter.print_results(test_data)
+            
+            calls = [call[0][0] for call in mock_echo.call_args_list]
+            assert any("Historia sin título" in str(call) for call in calls)
 
 
 class TestSpecializedPrintMethods:
     """Test specialized print methods."""
 
     def test_print_results_placeholder(self):
-        """Test print_results method (currently a placeholder)."""
+        """Test print_results method with proper structure."""
         formatter = OutputFormatter()
         
-        # This method currently just passes, so we test that it doesn't crash
-        formatter.print_results({"test": "data"})
-        # No assertions needed since it's a placeholder
+        # Test with proper structure
+        test_data = {
+            'total_files': 1,
+            'file_results': [],
+            'overall_result': None
+        }
+        
+        # Should not crash with proper structure
+        formatter.print_results(test_data)
 
     def test_print_validation_result(self):
         """Test printing validation result."""

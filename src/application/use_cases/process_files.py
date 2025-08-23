@@ -108,7 +108,7 @@ class ProcessFilesUseCase:
             failed=sum(1 for r in results if not r.success),
             results=results
         )
-        
+
         # Agregar stories al batch_result para poder mostrarlos después
         batch_result.stories = stories
 
