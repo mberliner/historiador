@@ -25,7 +25,7 @@ test:
   stage: test
   parallel:
     matrix:
-      - PYTHON_VERSION: ["3.8", "3.11"]
+      - PYTHON_VERSION: ["3.8", "3.13"]
   image: python:${PYTHON_VERSION}
   
   # Equivalente a fail-fast: true
