@@ -141,14 +141,9 @@ release_job:
       artifacts: true  # Asegurar descarga de artefactos
   
   script:
-    - echo "🚀 Creating release for $CI_COMMIT_TAG"
-    - echo "📦 Validating artifacts..."
-    - ls -la . || true
-    - find . -name "historiador*" -type f -ls || echo "No historiador executable found"
-    - test -f "dist/historiador" || (echo "❌ ERROR: dist/historiador not found!" && find . -type f -name "*historiador*" -ls && exit 1)
-    - echo "✅ Executable found at $(ls -la dist/historiador)"
-    - chmod +x dist/historiador
-    - ./dist/historiador --help || echo "⚠️ WARNING: Executable test failed"
+    - echo "Creating release for $CI_COMMIT_TAG"
+    - ls -la dist/
+    - test -f dist/historiador
     
   release:
     tag_name: '$CI_COMMIT_TAG'
