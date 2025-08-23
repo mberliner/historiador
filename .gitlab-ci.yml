@@ -9,6 +9,7 @@ workflow:
 stages:
   - test
   - build
+  - package
   - release
 
 # Variables globales
@@ -134,7 +135,7 @@ build:
 
 # Job para subir al Package Registry
 upload_package:
-  stage: release
+  stage: package
   image: alpine:latest
   needs: 
     - job: build
