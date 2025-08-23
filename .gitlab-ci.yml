@@ -141,12 +141,10 @@ release:
   # No cache needed para release
   cache: {}
   
-  before_script:
+  script:
     - echo "🚀 Preparing release $CI_COMMIT_TAG"
     - echo "Pipeline: $CI_PIPELINE_URL"
     - echo "Commit: $CI_COMMIT_SHA"
-    
-  script:
     - echo "Creating GitLab release for tag $CI_COMMIT_TAG"
     - echo "Executable available at pipeline $CI_PIPELINE_ID"
     
