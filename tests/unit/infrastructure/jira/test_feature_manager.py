@@ -883,3 +883,5 @@ class TestFeatureManagerIntegration:
                 
                 # Search should only be called once (rest from cache)
                 assert mock_search_calls.call_count == 1
+
+

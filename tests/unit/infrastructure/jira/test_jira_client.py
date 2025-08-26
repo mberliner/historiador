@@ -1025,3 +1025,5 @@ class TestJiraClientIntegration:
                 # Verify workflow
                 mock_post.assert_called_once()
                 mock_create_subtasks.assert_called_once_with("TEST-100", story.subtareas)
+
+

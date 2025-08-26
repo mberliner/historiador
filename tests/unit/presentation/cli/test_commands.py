@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock, call
 from click.testing import CliRunner
 
-from src.presentation.cli.commands import setup_logging
+from src.presentation.cli.commands import setup_logging, safe_init_settings
 
 
 class TestSetupLogging:
@@ -173,3 +173,5 @@ class TestCommandsImports:
         # Test that runner works with a proper Click command
         result = runner.invoke(dummy_command, [])
         assert result.exit_code == 0
+
+

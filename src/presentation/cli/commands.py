@@ -4,8 +4,31 @@ import sys
 from pathlib import Path
 
 import click
+from pydantic import ValidationError
 
 from src.infrastructure.settings import Settings
+
+
+def safe_init_settings():
+    """Inicializa Settings con manejo de errores apropiado."""
+    try:
+        return Settings()
+    except ValidationError as e:
+        missing_fields = []
+        for error in e.errors():
+            if error['type'] == 'missing':
+                field_name = error['loc'][0]
+                # Convertir de snake_case a UPPER_CASE para variables de entorno
+                env_var = field_name.upper()
+                missing_fields.append(env_var)
+        
+        click.echo("[ERROR] Configuracion faltante.", err=True)
+        click.echo("Por favor configure las siguientes variables de entorno:", err=True)
+        for field in missing_fields:
+            click.echo(f"  - {field}", err=True)
+        click.echo("\nO cree un archivo .env con estas variables.", err=True)
+        click.echo("Ejemplo: cp .env.example .env && nano .env", err=True)
+        sys.exit(1)
 
 
 def setup_logging(settings: Settings, level: str = "INFO"):
@@ -44,7 +67,7 @@ def process_command(file, project, batch_size, dry_run, log_level):
     from src.application.use_cases.process_files import ProcessFilesUseCase
 
     # Configuración
-    settings = Settings()
+    settings = safe_init_settings()
     if project:
         settings.project_key = project
     if dry_run:
@@ -126,7 +149,7 @@ def diagnose_command(project, log_level):
     from src.infrastructure.settings import Settings
 
     # Configurar logging
-    settings = Settings()
+    settings = safe_init_settings()
     if project:
         settings.project_key = project
     setup_logging(settings, log_level)
