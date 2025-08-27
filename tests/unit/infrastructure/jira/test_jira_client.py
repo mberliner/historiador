@@ -941,6 +941,161 @@ class TestDeleteIssue:
                 client.session.delete.assert_called_with(expected_url)
 
 
+class TestJiraClientCoverageEdgeCases:
+    """Tests for edge cases to improve coverage."""
+
+    def test_create_user_story_multiple_criteria_semicolon(self):
+        """Test user story creation with multiple acceptance criteria separated by semicolon."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        client = JiraClient(settings)
+        
+        story = UserStory(
+            titulo="Test Story",
+            descripcion="Test description", 
+            criterio_aceptacion="Criteria 1;Criteria 2;Criteria 3",
+            subtareas=[]
+        )
+        
+        mock_response = Mock()
+        mock_response.json.return_value = {'key': 'TEST-123'}
+        mock_response.raise_for_status.return_value = None
+        
+        with patch.object(client.session, 'post', return_value=mock_response):
+            with patch.object(client, 'feature_manager'):
+                result = client.create_user_story(story)
+                
+                assert result.success is True
+                assert result.jira_key == 'TEST-123'
+                # Verify the call was made
+                client.session.post.assert_called_once()
+
+    def test_create_subtask_http_error_with_json_response(self):
+        """Test subtask creation with HTTPError that has JSON response."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        client = JiraClient(settings)
+        
+        # Mock response for parent story creation
+        parent_response = Mock()
+        parent_response.json.return_value = {'key': 'TEST-123'}
+        parent_response.raise_for_status.return_value = None
+        
+        # Mock response for subtask creation that fails
+        subtask_response = Mock()
+        subtask_response.raise_for_status.side_effect = requests.exceptions.HTTPError("400 Bad Request")
+        subtask_response.json.return_value = {"errorMessages": ["Field is required"]}
+        
+        story = UserStory(
+            titulo="Test Story",
+            descripcion="Test description",
+            criterio_aceptacion="Test criteria",
+            subtareas=["Subtask 1"]
+        )
+        
+        with patch.object(client.session, 'post') as mock_post:
+            mock_post.side_effect = [parent_response, subtask_response]
+            
+            with patch('src.infrastructure.jira.jira_client.logger') as mock_logger:
+                with patch.object(client, 'feature_manager'):
+                    result = client.create_user_story(story)
+                    
+                    # Should have created parent but failed subtask
+                    assert result.success is True
+                    assert result.jira_key == 'TEST-123'
+                    assert result.subtasks_created == 0
+                    assert result.subtasks_failed == 1
+                    
+                    # Should log the JSON error details
+                    mock_logger.error.assert_called()
+
+    def test_create_subtask_http_error_without_json_response(self):
+        """Test subtask creation with HTTPError that can't parse JSON response."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        client = JiraClient(settings)
+        
+        parent_response = Mock()
+        parent_response.json.return_value = {'key': 'TEST-123'}
+        parent_response.raise_for_status.return_value = None
+        
+        # Mock response that fails and can't parse JSON
+        subtask_response = Mock()
+        http_error = requests.exceptions.HTTPError("400 Bad Request")
+        http_error.response = Mock()
+        http_error.response.json.side_effect = ValueError("No JSON object could be decoded")
+        subtask_response.raise_for_status.side_effect = http_error
+        
+        story = UserStory(
+            titulo="Test Story",
+            descripcion="Test description",
+            criterio_aceptacion="Test criteria",
+            subtareas=["Subtask 1"]
+        )
+        
+        with patch.object(client.session, 'post') as mock_post:
+            mock_post.side_effect = [parent_response, subtask_response]
+            
+            with patch('src.infrastructure.jira.jira_client.logger') as mock_logger:
+                with patch.object(client, 'feature_manager'):
+                    result = client.create_user_story(story)
+                    
+                    assert result.success is True
+                    assert result.subtasks_failed == 1
+                    mock_logger.error.assert_called()
+
+    def test_create_subtask_general_exception(self):
+        """Test subtask creation with general exception."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        client = JiraClient(settings)
+        
+        parent_response = Mock()
+        parent_response.json.return_value = {'key': 'TEST-123'}
+        parent_response.raise_for_status.return_value = None
+        
+        story = UserStory(
+            titulo="Test Story", 
+            descripcion="Test description",
+            criterio_aceptacion="Test criteria",
+            subtareas=["Subtask 1"]
+        )
+        
+        with patch.object(client.session, 'post') as mock_post:
+            mock_post.side_effect = [parent_response, Exception("Network timeout")]
+            
+            with patch('src.infrastructure.jira.jira_client.logger') as mock_logger:
+                with patch.object(client, 'feature_manager'):
+                    result = client.create_user_story(story)
+                    
+                    assert result.success is True
+                    assert result.subtasks_failed == 1
+                    mock_logger.error.assert_called()
+
+    def test_create_user_story_with_acceptance_criteria_field(self):
+        """Test user story creation when acceptance criteria field is configured."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        # Set the acceptance criteria field
+        settings.acceptance_criteria_field = "customfield_10001"
+        client = JiraClient(settings)
+        
+        story = UserStory(
+            titulo="Test Story",
+            descripcion="Test description",
+            criterio_aceptacion="Custom criteria field test",
+            subtareas=[]
+        )
+        
+        mock_response = Mock()
+        mock_response.json.return_value = {'key': 'TEST-123'}
+        mock_response.raise_for_status.return_value = None
+        
+        with patch.object(client.session, 'post', return_value=mock_response):
+            with patch.object(client, 'feature_manager'):
+                result = client.create_user_story(story)
+                
+                assert result.success is True
+                assert result.jira_key == 'TEST-123'
+                # Verify the call was made
+                client.session.post.assert_called_once()
+
+
 class TestJiraClientIntegration:
     """Integration tests for JiraClient."""
 
