@@ -334,21 +334,22 @@ Los siguientes "agentes" están definidos como secuencias de comandos especializ
 
 ### build-agent
 **Comando**: `build-agent`
-**Propósito**: Agente de construcción y validación de ejecutable
+**Propósito**: Agente de construcción y validación de ejecutable optimizado
 
 **Secuencia de ejecución**:
 1. Ejecutar `qa-agent` primero (prerequisito)
 2. Limpiar build anterior: `rm -rf build/ dist/`
-3. Generar ejecutable: `pyinstaller --onefile --name historiador --add-data=".env.example:." src/main.py --clean`
+3. Generar ejecutable optimizado: `pyinstaller historiador-clean.spec --clean` (52MB optimizado)
 4. Verificar que el ejecutable se crea en `dist/historiador`
 5. Probar comando básico: `./dist/historiador --help`
 6. Ejecutar test de conexión: `./dist/historiador test-connection`
-7. Validar comando validate: `./dist/historiador validate -f entrada/test_*.csv`
-8. Generar reporte de build con tamaño del ejecutable
+7. Probar modo dry-run: `./dist/historiador --dry-run` (procesamiento automático sin modificar Jira)
+8. Validar comando validate: `./dist/historiador validate --help` (sin archivos test)
+9. Generar reporte de build con tamaño del ejecutable
 
 **Criterios de éxito**:
 - qa-agent pasa completamente
-- Ejecutable generado sin errores
+- Ejecutable optimizado generado sin errores (~52MB vs 83MB estándar)
 - Comandos básicos funcionan correctamente
 - Tests de funcionalidad básica pasan
 
