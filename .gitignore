@@ -55,12 +55,15 @@ venv.bak/
 ehthumbs.db
 Thumbs.db
 
+claude/settings.local.json
+
 # Project specific
 logs/
 procesados/
 entrada/*.csv
 entrada/*.xlsx
 entrada/*.xls
+entrada
 
 # Keep example files but ignore actual data
 !entrada/ejemplo_*.csv

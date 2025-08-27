@@ -426,6 +426,46 @@ Para `all`:
 - Tests ejecutables y passing
 - Código funcionalmente equivalente
 
+### fix-coverage-agent [THRESHOLD]
+**Comando**: `fix-coverage-agent 80`
+**Propósito**: Agente iterativo que mejora la cobertura de tests hasta alcanzar el umbral especificado
+
+**Secuencia de ejecución**:
+1. Ejecutar tests con cobertura actual: `pytest tests/unit/ --cov=src --cov-report=html --cov-report=term-missing`
+2. Analizar reporte de cobertura e identificar archivos con cobertura insuficiente
+3. **Iteración principal** (repetir hasta alcanzar threshold):
+   a. Identificar el archivo con menor cobertura en lógica de negocio crítica
+   b. Analizar funciones/métodos sin tests usando reporte HTML
+   c. Priorizar casos más razonables y necesarios:
+      - Funciones públicas principales (entry points)
+      - Lógica de validación y transformación de datos
+      - Manejo de errores y casos edge críticos
+      - Algoritmos de negocio principales
+   d. Generar tests específicos para los casos identificados
+   e. Ejecutar tests para validar que funcionan correctamente
+   f. Medir nueva cobertura y continuar si no se alcanzó el threshold
+4. Generar reporte final con mejoras de cobertura por archivo
+5. Validar que todos los tests pasan correctamente
+6. Crear resumen de tests agregados por capa de Clean Architecture
+
+**Estrategia de priorización de tests**:
+- **Alta prioridad**: Domain entities, use cases críticos, validaciones
+- **Media prioridad**: Infrastructure adapters, formatters, utilities  
+- **Baja prioridad**: CLI commands, configuración, logging
+
+**Exclusiones inteligentes**:
+- No crear tests triviales para getters/setters simples
+- No testear código que solo hace llamadas directas a librerías externas
+- No crear tests para configuración estática
+- Excluir `src/main.py` (punto de entrada de 45 líneas)
+
+**Criterios de éxito**:
+- Cobertura total ≥ threshold especificado
+- Todos los tests nuevos pasan correctamente
+- Tests enfocados en lógica de negocio crítica
+- Código funcionalmente equivalente (sin regresiones)
+- Reporte detallado de mejoras por archivo/capa
+
 ## Uso de Agentes
 
 Para usar cualquier agente, simplemente escribir su nombre como comando:
@@ -437,6 +477,7 @@ build-agent
 release-agent v1.5.0
 coverage-agent 80
 fix-agent all
+fix-coverage-agent 80
 ```
 
 Los agentes son ejecutados secuencialmente y reportan progreso usando el sistema TodoWrite para tracking de tareas.
