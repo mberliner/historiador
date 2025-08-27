@@ -240,19 +240,19 @@ class OutputFormatter:
         self.print_success(f"Tipo de feature '{result['feature_type']}' válido")
 
         if result['required_fields']:
-            click.echo(f"\nCAMPOS OBLIGATORIOS ENCONTRADOS:")
+            click.echo("\nCAMPOS OBLIGATORIOS ENCONTRADOS:")
             for field_id, field_value in result['required_fields'].items():
                 click.echo(f"   * {field_id}: {field_value}")
 
-            click.echo(f"\nCONFIGURACIÓN SUGERIDA PARA .env:")
+            click.echo("\nCONFIGURACIÓN SUGERIDA PARA .env:")
             click.echo(f"FEATURE_REQUIRED_FIELDS='{result['config_suggestion']}'")
 
-            click.echo(f"\nNOTA: Revisa los logs para ver todos los valores disponibles")
+            click.echo("\nNOTA: Revisa los logs para ver todos los valores disponibles")
         else:
             self.print_success("No se encontraron campos obligatorios adicionales")
 
-        click.echo(f"\nCONFIGURACIÓN ACTUAL:")
+        click.echo("\nCONFIGURACIÓN ACTUAL:")
         click.echo(f"   FEATURE_ISSUE_TYPE: {result['current_config']['feature_type']}")
         click.echo(f"   FEATURE_REQUIRED_FIELDS: {result['current_config']['required_fields'] or 'No configurado'}")
 
-        click.echo(f"\nDiagnóstico completado")
+        click.echo("\nDiagnóstico completado")

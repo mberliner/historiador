@@ -21,7 +21,7 @@ def safe_init_settings():
                 # Convertir de snake_case a UPPER_CASE para variables de entorno
                 env_var = field_name.upper()
                 missing_fields.append(env_var)
-        
+
         click.echo("[ERROR] Configuracion faltante.", err=True)
         click.echo("Por favor configure las siguientes variables de entorno:", err=True)
         for field in missing_fields:
@@ -86,7 +86,9 @@ def process_command(file, project, batch_size, dry_run, log_level):
         else:
             files_to_process = process_use_case.find_input_files()
             if not files_to_process:
-                formatter.print_error(f"No se encontraron archivos CSV/Excel en {settings.input_directory}")
+                formatter.print_error(
+                    f"No se encontraron archivos CSV/Excel en {settings.input_directory}"
+                )
                 return
 
         formatter.print_info(f"Iniciando procesamiento de {len(files_to_process)} archivo(s)...")
@@ -145,8 +147,6 @@ def diagnose_command(project, log_level):
     """Diagnostica configuración y campos obligatorios para features."""
     from src.presentation.formatters.output_formatter import OutputFormatter
     from src.application.use_cases.diagnose_features import DiagnoseFeaturesUseCase
-
-    from src.infrastructure.settings import Settings
 
     # Configurar logging
     settings = safe_init_settings()
