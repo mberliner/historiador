@@ -321,6 +321,166 @@ class TestGetRequiredFieldsForFeature:
             
             assert result == {}
             mock_logger.error.assert_called_once()
+    
+    def test_get_required_fields_no_issuetypes(self):
+        """Test handling when no issue types are returned."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        session = Mock(spec=requests.Session)
+        manager = FeatureManager(settings, session)
+        
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "projects": [{
+                "issuetypes": []
+            }]
+        }
+        mock_response.raise_for_status.return_value = None
+        session.get.return_value = mock_response
+        
+        with patch('src.infrastructure.jira.feature_manager.logger') as mock_logger:
+            result = manager.get_required_fields_for_feature()
+            
+            assert result == {}
+            mock_logger.warning.assert_called_once()
+    
+    def test_get_required_fields_no_epic_name_field(self):
+        """Test when no Epic Name field is found."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        session = Mock(spec=requests.Session)
+        manager = FeatureManager(settings, session)
+        
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "projects": [{
+                "issuetypes": [{
+                    "fields": {
+                        "project": {"required": True},
+                        "summary": {"required": True},
+                        "issuetype": {"required": True},
+                        "description": {"required": True}
+                    }
+                }]
+            }]
+        }
+        mock_response.raise_for_status.return_value = None
+        session.get.return_value = mock_response
+        
+        with patch('src.infrastructure.jira.feature_manager.logger') as mock_logger:
+            result = manager.get_required_fields_for_feature()
+            
+            assert result == {}
+            assert manager._epic_name_field_id is None
+            mock_logger.warning.assert_called_with(
+                "No se encontró campo Epic Name en el tipo de issue %s", 
+                settings.feature_issue_type
+            )
+    
+    def test_get_required_fields_with_many_allowed_values(self):
+        """Test field with many allowed values (>5)."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        session = Mock(spec=requests.Session)
+        manager = FeatureManager(settings, session)
+        
+        allowed_values = []
+        for i in range(10):  # Create 10 values to trigger "and N more" message
+            allowed_values.append({"id": str(i), "value": f"Value {i}"})
+        
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "projects": [{
+                "issuetypes": [{
+                    "fields": {
+                        "project": {"required": True},
+                        "summary": {"required": True},
+                        "customfield_10001": {
+                            "name": "Priority",
+                            "required": True,
+                            "allowedValues": allowed_values
+                        }
+                    }
+                }]
+            }]
+        }
+        mock_response.raise_for_status.return_value = None
+        session.get.return_value = mock_response
+        
+        with patch('src.infrastructure.jira.feature_manager.logger') as mock_logger:
+            result = manager.get_required_fields_for_feature()
+            
+            assert "customfield_10001" in result
+            assert result["customfield_10001"]["id"] == "0"
+            
+            # Should log the "... y N más" message
+            mock_logger.info.assert_any_call("    ... y %d más", 5)
+    
+    def test_get_required_fields_with_value_fallback(self):
+        """Test required field with value instead of id."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        session = Mock(spec=requests.Session)
+        manager = FeatureManager(settings, session)
+        
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "projects": [{
+                "issuetypes": [{
+                    "fields": {
+                        "project": {"required": True},
+                        "summary": {"required": True},
+                        "customfield_10001": {
+                            "name": "Priority",
+                            "required": True,
+                            "allowedValues": [
+                                {"value": "High", "name": "High Priority"},  # No ID field
+                                {"value": "Medium", "name": "Medium Priority"}
+                            ]
+                        }
+                    }
+                }]
+            }]
+        }
+        mock_response.raise_for_status.return_value = None
+        session.get.return_value = mock_response
+        
+        result = manager.get_required_fields_for_feature()
+        
+        assert "customfield_10001" in result
+        assert result["customfield_10001"]["value"] == "High"
+    
+    def test_get_required_fields_with_fallback_format(self):
+        """Test required field with fallback object format."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        session = Mock(spec=requests.Session)
+        manager = FeatureManager(settings, session)
+        
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "projects": [{
+                "issuetypes": [{
+                    "fields": {
+                        "project": {"required": True},
+                        "summary": {"required": True},
+                        "customfield_10001": {
+                            "name": "Category",
+                            "required": True,
+                            "allowedValues": [
+                                {"name": "Bug", "description": "Bug category"},  # No ID or value
+                                {"name": "Feature"}
+                            ]
+                        }
+                    }
+                }]
+            }]
+        }
+        mock_response.raise_for_status.return_value = None
+        session.get.return_value = mock_response
+        
+        result = manager.get_required_fields_for_feature()
+        
+        assert "customfield_10001" in result
+        # Should use the entire object as fallback
+        assert result["customfield_10001"] == {"name": "Bug", "description": "Bug category"}
+
+
 
 
 class TestValidateExistingIssue:
@@ -405,6 +565,35 @@ class TestSearchExistingFeatures:
                 
                 assert result is None
                 mock_logger.warning.assert_called_once()
+    
+    def test_search_existing_features_found_by_title(self):
+        """Test finding existing feature by title comparison as fallback."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        session = Mock(spec=requests.Session)
+        manager = FeatureManager(settings, session)
+        
+        # Mock search response where description doesn't match but title does
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "issues": [{
+                "key": "TEST-200",
+                "fields": {
+                    "summary": "User Authentication Feature",  # This will match the expected title
+                    "description": {
+                        "type": "doc",
+                        "content": [{"type": "paragraph", "content": [{"type": "text", "text": "different description"}]}]
+                    }
+                }
+            }]
+        }
+        mock_response.raise_for_status.return_value = None
+        session.get.return_value = mock_response
+        
+        # Mock generate_feature_title to return something that matches the summary
+        with patch.object(manager, '_generate_feature_title', return_value="User Authentication Feature"):
+            result = manager._search_existing_features("user auth system")  # Different description
+            
+            assert result == "TEST-200"  # Should be found by title match
 
 
 class TestExtractTextFromDescription:
@@ -459,6 +648,29 @@ class TestExtractTextFromDescription:
         result = manager._extract_text_from_description("Simple string description")
         
         assert result == "Simple string description"
+    
+    def test_extract_text_from_description_exception_handling(self):
+        """Test exception handling in text extraction."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        session = Mock(spec=requests.Session)
+        manager = FeatureManager(settings, session)
+        
+        # Create a malformed description that will cause an exception
+        malformed_description = {
+            "type": "doc",
+            "content": [
+                {
+                    "type": "paragraph",
+                    "content": None  # This will cause an exception
+                }
+            ]
+        }
+        
+        with patch('src.infrastructure.jira.feature_manager.logger') as mock_logger:
+            result = manager._extract_text_from_description(malformed_description)
+            
+            assert result == ""
+            mock_logger.warning.assert_called_once()
 
 
 class TestCreateFeature:
@@ -577,6 +789,72 @@ class TestCreateFeature:
                     assert result is None
                     # The actual implementation logs the full message, not with %s format
                     mock_logger.error.assert_called_with("Error creando feature: Connection timeout")
+    
+    def test_create_feature_with_manual_configuration(self):
+        """Test feature creation with manual required fields configuration."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        settings.feature_required_fields = '{"customfield_10001": {"id": "manual_value"}}'
+        session = Mock(spec=requests.Session)
+        manager = FeatureManager(settings, session)
+        
+        mock_response = Mock()
+        mock_response.json.return_value = {"key": "TEST-300"}
+        mock_response.raise_for_status.return_value = None
+        session.post.return_value = mock_response
+        
+        with patch.object(manager, '_generate_feature_title', return_value="Test Feature..."):
+            result = manager.create_feature("Test feature description")
+            
+            assert result == "TEST-300"
+            
+            # Verify manual configuration was used
+            call_args = session.post.call_args
+            payload = json.loads(call_args[1]['data'])
+            assert payload["fields"]["customfield_10001"]["id"] == "manual_value"
+    
+    def test_create_feature_with_invalid_manual_configuration(self):
+        """Test feature creation with invalid manual required fields configuration."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        settings.feature_required_fields = 'invalid json}'
+        session = Mock(spec=requests.Session)
+        manager = FeatureManager(settings, session)
+        
+        mock_response = Mock()
+        mock_response.json.return_value = {"key": "TEST-301"}
+        mock_response.raise_for_status.return_value = None
+        session.post.return_value = mock_response
+        
+        with patch.object(manager, '_generate_feature_title', return_value="Test Feature..."):
+            with patch.object(manager, 'get_required_fields_for_feature', return_value={}) as mock_get_fields:
+                with patch('src.infrastructure.jira.feature_manager.logger') as mock_logger:
+                    result = manager.create_feature("Test feature description")
+                    
+                    assert result == "TEST-301"
+                    # Should log warning about invalid JSON
+                    mock_logger.warning.assert_called_once()
+                    # Should fallback to automatic detection
+                    mock_get_fields.assert_called_once()
+    
+    def test_create_feature_epic_name_detection_fallback(self):
+        """Test Epic Name field detection when using manual config but Epic Name not detected yet."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        settings.feature_required_fields = '{"customfield_10001": {"id": "manual"}}'
+        session = Mock(spec=requests.Session)
+        manager = FeatureManager(settings, session)
+        manager._epic_name_field_id = None  # Not detected yet
+        
+        mock_response = Mock()
+        mock_response.json.return_value = {"key": "TEST-302"}
+        mock_response.raise_for_status.return_value = None
+        session.post.return_value = mock_response
+        
+        with patch.object(manager, '_generate_feature_title', return_value="Test Feature..."):
+            with patch.object(manager, 'get_required_fields_for_feature', return_value={}) as mock_get_fields:
+                result = manager.create_feature("Test feature description")
+                
+                assert result == "TEST-302"
+                # Should call get_required_fields_for_feature to detect Epic Name
+                mock_get_fields.assert_called_once()
 
 
 class TestGetOrCreateParent:
@@ -745,6 +1023,35 @@ class TestGenerateFeatureTitle:
         
         assert "Short word" in result
         assert result.endswith("...")
+    
+    def test_generate_feature_title_no_good_break_point(self):
+        """Test title generation when no good word boundary exists."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        session = Mock(spec=requests.Session)
+        manager = FeatureManager(settings, session)
+        
+        # Very long description with no spaces that can't fit
+        desc = "verylongdescriptionwithoutanyspacesorwordbreaksthatcannotfit"
+        result = manager._generate_feature_title(desc, max_length=20)
+        
+        # Should fallback to character truncation
+        assert len(result) <= 20
+        assert result.endswith("...")
+        assert result == desc[:17] + "..."
+    
+    def test_generate_feature_title_exact_length_fit(self):
+        """Test when description fits exactly at max length."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        session = Mock(spec=requests.Session)
+        manager = FeatureManager(settings, session)
+        
+        # Description that fits exactly
+        desc = "exactly twenty chars"
+        result = manager._generate_feature_title(desc, max_length=20)
+        
+        # Should return as-is, no truncation
+        assert result == desc
+        assert not result.endswith("...")
 
 
 class TestGetIssueTypes:
