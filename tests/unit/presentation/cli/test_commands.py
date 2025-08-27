@@ -175,3 +175,267 @@ class TestCommandsImports:
         assert result.exit_code == 0
 
 
+class TestProcessCommand:
+    """Test process_command function."""
+    
+    def test_process_command_with_file(self):
+        """Test process command with specific file."""
+        from src.presentation.cli.commands import process_command
+        
+        runner = CliRunner()
+        
+        with patch('src.presentation.cli.commands.safe_init_settings') as mock_settings:
+            with patch('src.presentation.cli.commands.setup_logging'):
+                with patch('src.application.use_cases.process_files.ProcessFilesUseCase') as mock_use_case:
+                    with patch('src.presentation.formatters.output_formatter.OutputFormatter') as mock_formatter:
+                        # Setup mocks
+                        mock_settings_obj = Mock()
+                        mock_settings_obj.input_directory = "entrada"
+                        mock_settings.return_value = mock_settings_obj
+                        
+                        mock_use_case_instance = Mock()
+                        mock_use_case.return_value = mock_use_case_instance
+                        mock_use_case_instance.process_files.return_value = Mock()
+                        
+                        mock_formatter_instance = Mock()
+                        mock_formatter.return_value = mock_formatter_instance
+                        
+                        # Run command
+                        result = runner.invoke(process_command, [
+                            '--file', 'test.csv',
+                            '--project', 'TEST',
+                            '--dry-run'
+                        ])
+                        
+                        assert result.exit_code == 0
+                        assert mock_settings_obj.project_key == 'TEST'
+                        assert mock_settings_obj.dry_run is True
+
+    def test_process_command_without_file_no_files_found(self):
+        """Test process command without file when no files found."""
+        from src.presentation.cli.commands import process_command
+        
+        runner = CliRunner()
+        
+        with patch('src.presentation.cli.commands.safe_init_settings') as mock_settings:
+            with patch('src.presentation.cli.commands.setup_logging'):
+                with patch('src.application.use_cases.process_files.ProcessFilesUseCase') as mock_use_case:
+                    with patch('src.presentation.formatters.output_formatter.OutputFormatter') as mock_formatter:
+                        # Setup mocks
+                        mock_settings_obj = Mock()
+                        mock_settings_obj.input_directory = "entrada"
+                        mock_settings.return_value = mock_settings_obj
+                        
+                        mock_use_case_instance = Mock()
+                        mock_use_case.return_value = mock_use_case_instance
+                        mock_use_case_instance.find_input_files.return_value = []
+                        
+                        mock_formatter_instance = Mock()
+                        mock_formatter.return_value = mock_formatter_instance
+                        
+                        # Run command
+                        result = runner.invoke(process_command, ['--project', 'TEST'])
+                        
+                        assert result.exit_code == 0  # Function returns normally, not with exit code 1
+                        mock_formatter_instance.print_error.assert_called_once()
+
+    def test_process_command_exception_handling(self):
+        """Test process command with exception."""
+        from src.presentation.cli.commands import process_command
+        
+        runner = CliRunner()
+        
+        with patch('src.presentation.cli.commands.safe_init_settings') as mock_settings:
+            with patch('src.presentation.cli.commands.setup_logging'):
+                with patch('src.application.use_cases.process_files.ProcessFilesUseCase') as mock_use_case:
+                    with patch('src.presentation.formatters.output_formatter.OutputFormatter') as mock_formatter:
+                        # Setup mocks
+                        mock_settings_obj = Mock()
+                        mock_settings.return_value = mock_settings_obj
+                        
+                        mock_use_case_instance = Mock()
+                        mock_use_case.return_value = mock_use_case_instance
+                        mock_use_case_instance.execute.side_effect = Exception("Test error")
+                        
+                        mock_formatter_instance = Mock()
+                        mock_formatter.return_value = mock_formatter_instance
+                        
+                        # Run command (this should trigger sys.exit in the actual code)
+                        result = runner.invoke(process_command, ['--file', 'test.csv'])
+                        
+                        assert result.exit_code == 1  # sys.exit(1) is called in exception block
+                        mock_formatter_instance.print_error.assert_called()
+
+
+class TestValidateCommand:
+    """Test validate_command function."""
+    
+    def test_validate_command_success(self):
+        """Test validate command successful execution."""
+        from src.presentation.cli.commands import validate_command
+        
+        runner = CliRunner()
+        
+        with patch('src.presentation.cli.commands.safe_init_settings') as mock_settings:
+            with patch('src.presentation.cli.commands.setup_logging'):
+                with patch('src.application.use_cases.validate_file.ValidateFileUseCase') as mock_use_case:
+                    with patch('src.presentation.formatters.output_formatter.OutputFormatter') as mock_formatter:
+                        # Setup mocks
+                        mock_settings_obj = Mock()
+                        mock_settings.return_value = mock_settings_obj
+                        
+                        mock_use_case_instance = Mock()
+                        mock_use_case.return_value = mock_use_case_instance
+                        mock_use_case_instance.execute.return_value = (True, "Valid file")
+                        
+                        mock_formatter_instance = Mock()
+                        mock_formatter.return_value = mock_formatter_instance
+                        
+                        # Run command
+                        result = runner.invoke(validate_command, [
+                            '--file', 'test.csv'
+                        ])
+                        
+                        assert result.exit_code == 0
+                        mock_use_case_instance.execute.assert_called_once_with('test.csv', 5)
+
+    def test_validate_command_failure(self):
+        """Test validate command with validation failure."""
+        from src.presentation.cli.commands import validate_command
+        
+        runner = CliRunner()
+        
+        with patch('src.presentation.cli.commands.safe_init_settings') as mock_settings:
+            with patch('src.presentation.cli.commands.setup_logging'):
+                with patch('src.application.use_cases.validate_file.ValidateFileUseCase') as mock_use_case:
+                    with patch('src.presentation.formatters.output_formatter.OutputFormatter') as mock_formatter:
+                        # Setup mocks
+                        mock_settings_obj = Mock()
+                        mock_settings.return_value = mock_settings_obj
+                        
+                        mock_use_case_instance = Mock()
+                        mock_use_case.return_value = mock_use_case_instance
+                        mock_use_case_instance.execute.return_value = (False, "Invalid file")
+                        
+                        mock_formatter_instance = Mock()
+                        mock_formatter.return_value = mock_formatter_instance
+                        
+                        # Run command
+                        result = runner.invoke(validate_command, [
+                            '--file', 'test.csv'
+                        ])
+                        
+                        assert result.exit_code == 0  # No sys.exit for validation failures
+                        mock_use_case_instance.execute.assert_called_once_with('test.csv', 5)
+
+
+class TestTestConnectionCommand:
+    """Test test_connection_command function."""
+    
+    def test_connection_command_success(self):
+        """Test connection command successful execution."""
+        from src.presentation.cli.commands import test_connection_command
+        
+        runner = CliRunner()
+        
+        with patch('src.presentation.cli.commands.safe_init_settings') as mock_settings:
+            with patch('src.presentation.cli.commands.setup_logging'):
+                with patch('src.application.use_cases.test_connection.TestConnectionUseCase') as mock_use_case:
+                    with patch('src.presentation.formatters.output_formatter.OutputFormatter') as mock_formatter:
+                        # Setup mocks
+                        mock_settings_obj = Mock()
+                        mock_settings.return_value = mock_settings_obj
+                        
+                        mock_use_case_instance = Mock()
+                        mock_use_case.return_value = mock_use_case_instance
+                        mock_use_case_instance.execute.return_value = Mock()  # Returns result object
+                        
+                        mock_formatter_instance = Mock()
+                        mock_formatter.return_value = mock_formatter_instance
+                        
+                        # Run command
+                        result = runner.invoke(test_connection_command)
+                        
+                        assert result.exit_code == 0
+                        mock_use_case_instance.execute.assert_called_once_with()
+                        mock_formatter_instance.print_connection_result.assert_called_once()
+
+    def test_connection_command_failure(self):
+        """Test connection command with connection failure."""
+        from src.presentation.cli.commands import test_connection_command
+        
+        runner = CliRunner()
+        
+        with patch('src.presentation.cli.commands.safe_init_settings') as mock_settings:
+            with patch('src.presentation.cli.commands.setup_logging'):
+                with patch('src.application.use_cases.test_connection.TestConnectionUseCase') as mock_use_case:
+                    with patch('src.presentation.formatters.output_formatter.OutputFormatter') as mock_formatter:
+                        # Setup mocks
+                        mock_settings_obj = Mock()
+                        mock_settings.return_value = mock_settings_obj
+                        
+                        mock_use_case_instance = Mock()
+                        mock_use_case.return_value = mock_use_case_instance
+                        mock_use_case_instance.execute.side_effect = Exception("Connection failed")
+                        
+                        mock_formatter_instance = Mock()
+                        mock_formatter.return_value = mock_formatter_instance
+                        
+                        # Run command
+                        result = runner.invoke(test_connection_command)
+                        
+                        assert result.exit_code == 1  # sys.exit(1) is called in exception block
+                        mock_formatter_instance.print_error.assert_called()
+
+
+class TestDiagnoseCommand:
+    """Test diagnose_command function."""
+    
+    def test_diagnose_command_success(self):
+        """Test diagnose command successful execution."""
+        from src.presentation.cli.commands import diagnose_command
+        
+        runner = CliRunner()
+        
+        with patch('src.presentation.cli.commands.safe_init_settings') as mock_settings:
+            with patch('src.presentation.cli.commands.setup_logging'):
+                with patch('src.application.use_cases.diagnose_features.DiagnoseFeaturesUseCase') as mock_use_case:
+                    with patch('src.presentation.formatters.output_formatter.OutputFormatter') as mock_formatter:
+                        # Setup mocks
+                        mock_settings_obj = Mock()
+                        mock_settings.return_value = mock_settings_obj
+                        
+                        mock_use_case_instance = Mock()
+                        mock_use_case.return_value = mock_use_case_instance
+                        mock_use_case_instance.execute.return_value = Mock()  # Returns result object
+                        
+                        mock_formatter_instance = Mock()
+                        mock_formatter.return_value = mock_formatter_instance
+                        
+                        # Run command
+                        result = runner.invoke(diagnose_command, ['--project', 'TEST'])
+                        
+                        assert result.exit_code == 0
+                        assert mock_settings_obj.project_key == 'TEST'
+                        mock_use_case_instance.execute.assert_called_once_with('TEST')
+                        mock_formatter_instance.print_diagnose_result.assert_called_once()
+
+
+class TestSafeInitSettings:
+    """Test safe_init_settings function."""
+    
+    def test_safe_init_settings_success(self):
+        """Test safe_init_settings successful initialization."""
+        from src.presentation.cli.commands import safe_init_settings
+        
+        with patch('src.presentation.cli.commands.Settings') as mock_settings_class:
+            mock_settings_instance = Mock()
+            mock_settings_class.return_value = mock_settings_instance
+            
+            result = safe_init_settings()
+            
+            assert result == mock_settings_instance
+            mock_settings_class.assert_called_once()
+
+
+
