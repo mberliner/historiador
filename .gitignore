@@ -55,7 +55,7 @@ venv.bak/
 ehthumbs.db
 Thumbs.db
 
-claude/settings.local.json
+.claude/settings.local.json
 
 # Project specific
 logs/

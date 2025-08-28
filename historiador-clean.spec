@@ -59,12 +59,19 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=None)
 
 import os
 
-# Detectar plataforma y asignar nombre apropiado
+# Detectar plataforma y configurar opciones apropiadas
 import sys
+
 if sys.platform.startswith('win'):
     executable_name = 'historiador.exe'
+    # En Windows, strip no está disponible por defecto y causa warnings
+    strip_enabled = False
+    upx_enabled = False  # UPX raramente disponible en Windows
 else:
     executable_name = 'historiador'
+    # En Linux/Mac, strip está disponible y ayuda a reducir tamaño
+    strip_enabled = True
+    upx_enabled = False  # Cambiar a True si UPX está instalado
 
 exe = EXE(
     pyz,
@@ -76,8 +83,8 @@ exe = EXE(
     name=executable_name.replace('.exe', ''),  # PyInstaller añade .exe automáticamente en Windows
     debug=False,
     bootloader_ignore_signals=False,
-    strip=True,              # Eliminar símbolos de debug
-    upx=False,               # UPX compresión (cambiar a True si está disponible)
+    strip=strip_enabled,     # Condicional: True en Linux/Mac, False en Windows
+    upx=upx_enabled,         # Condicional: False por defecto, configurable por plataforma
     upx_exclude=[],
     runtime_tmpdir=None,
     console=True,
