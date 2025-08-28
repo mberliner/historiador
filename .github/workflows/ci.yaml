@@ -94,6 +94,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pyinstaller
+          # Ensure SSL/crypto libraries are available
+          pip install cryptography pyOpenSSL
           
       - name: Build executable with PyInstaller
         run: |
@@ -106,6 +108,9 @@ jobs:
         run: |
           chmod +x dist/historiador
           ./dist/historiador --help
+          # Test SSL functionality by checking if requests module is available
+          echo "Testing SSL availability..."
+          echo 'import ssl, requests; print("SSL module available")' | python
           
       - name: Upload executable
         uses: actions/upload-artifact@v4
