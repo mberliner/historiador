@@ -85,6 +85,7 @@ El proyecto implementa **Clean Architecture** con separación en 4 capas:
 - ✅ Búsqueda de features existentes para evitar duplicados
 - ✅ Normalización de descripciones para comparación consistente
 - ✅ Refactorización Fase 1: Arquitectura limpia (Score PyLint: 7.92 → 8.64)
+- ✅ Configuración interactiva: Si no existe `.env`, solicita valores al usuario paso a paso
 
 ## Validaciones Implementadas
 - Existencia del tipo "Subtarea" en el proyecto Jira
@@ -112,6 +113,40 @@ FEATURE_ISSUE_TYPE=Feature
 ROLLBACK_ON_SUBTASK_FAILURE=false
 ACCEPTANCE_CRITERIA_FIELD=customfield_10001
 ```
+
+## Configuración Interactiva
+Si no existe archivo `.env`, la aplicación ofrece configuración interactiva:
+
+### Ejemplo de Uso
+```bash
+./historiador test-connection
+```
+
+**Salida cuando no hay .env:**
+```
+[ERROR] Configuracion faltante.
+¿Desea configurar los valores manualmente ahora? [y/N]: y
+
+=== Configuración Interactiva ===
+URL de Jira (ej: https://company.atlassian.net): https://mycompany.atlassian.net
+Email del usuario de Jira: myemail@company.com
+API Token de Jira: [OCULTO]
+Clave del proyecto en Jira (ej: PROJ): MYPROJ
+ID del campo de criterios (ej: customfield_10001) (opcional): customfield_10147
+
+✓ Archivo .env creado exitosamente
+Reiniciando configuración...
+Probando conexión con Jira...
+[OK] Conexión exitosa
+[OK] Proyecto MYPROJ encontrado
+```
+
+### Características
+- **API Token oculto**: Se solicita con `hide_input=True` por seguridad
+- **Campo opcional**: `acceptance_criteria_field` puede dejarse vacío
+- **Archivo .env automático**: Se genera con valores predeterminados para otros campos
+- **Validación inmediata**: Recarga configuración y verifica conexión
+- **Manejo de errores**: Si la configuración falla, muestra error descriptivo
 
 ## Problemas Conocidos y Soluciones
 - **Error 404 en /project/{key}/issuetype**: Usar endpoint `/issue/createmeta` con expand

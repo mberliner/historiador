@@ -18,17 +18,99 @@ def safe_init_settings():
         for error in e.errors():
             if error['type'] == 'missing':
                 field_name = error['loc'][0]
-                # Convertir de snake_case a UPPER_CASE para variables de entorno
                 env_var = field_name.upper()
-                missing_fields.append(env_var)
+                missing_fields.append((field_name, env_var))
 
         click.echo("[ERROR] Configuracion faltante.", err=True)
+
+        # Preguntar si desea configurar interactivamente
+        if click.confirm("¿Desea configurar los valores manualmente ahora?"):
+            return _configure_interactively(missing_fields)
+
         click.echo("Por favor configure las siguientes variables de entorno:", err=True)
-        for field in missing_fields:
-            click.echo(f"  - {field}", err=True)
+        for _, env_var in missing_fields:
+            click.echo(f"  - {env_var}", err=True)
         click.echo("\nO cree un archivo .env con estas variables.", err=True)
         click.echo("Ejemplo: cp .env.example .env && nano .env", err=True)
         sys.exit(1)
+
+
+def _configure_interactively(missing_fields):
+    """Configura valores de forma interactiva y crea archivo .env."""
+    click.echo("\n=== Configuración Interactiva ===")
+
+    env_values = {}
+    field_descriptions = {
+        'jira_url': 'URL de Jira (ej: https://company.atlassian.net)',
+        'jira_email': 'Email del usuario de Jira',
+        'jira_api_token': 'API Token de Jira',
+        'project_key': 'Clave del proyecto en Jira (ej: PROJ)',
+        'acceptance_criteria_field': 'ID del campo de criterios (ej: customfield_10001)'
+    }
+
+    for field_name, env_var in missing_fields:
+        description = field_descriptions.get(field_name, f"Valor para {field_name}")
+
+        if field_name == 'jira_api_token':
+            # Para API token usar hide_input para ocultar el valor
+            value = click.prompt(f"{description}", hide_input=True, type=str)
+        elif field_name == 'acceptance_criteria_field':
+            # Campo opcional
+            value = click.prompt(f"{description} (opcional)", default="", show_default=False)
+            if not value:
+                continue
+        else:
+            value = click.prompt(f"{description}", type=str)
+
+        env_values[env_var] = value
+
+    # Crear archivo .env con los valores proporcionados
+    _create_env_file(env_values)
+
+    click.echo("\n✓ Archivo .env creado exitosamente")
+    click.echo("Reiniciando configuración...")
+
+    try:
+        return Settings()
+    except ValidationError:
+        click.echo("[ERROR] Error al cargar la nueva configuración.", err=True)
+        sys.exit(1)
+
+
+def _create_env_file(env_values):
+    """Crea archivo .env con los valores proporcionados."""
+    env_content = [
+        "# Configuración de Jira (generada automáticamente)",
+        f"JIRA_URL={env_values.get('JIRA_URL', '')}",
+        f"JIRA_EMAIL={env_values.get('JIRA_EMAIL', '')}",
+        f"JIRA_API_TOKEN={env_values.get('JIRA_API_TOKEN', '')}",
+        f"PROJECT_KEY={env_values.get('PROJECT_KEY', '')}",
+    ]
+
+    # Agregar campo opcional si fue proporcionado
+    if 'ACCEPTANCE_CRITERIA_FIELD' in env_values:
+        env_content.append(f"ACCEPTANCE_CRITERIA_FIELD={env_values['ACCEPTANCE_CRITERIA_FIELD']}")
+
+    env_content.extend([
+        "",
+        "# Configuración de tipos de issues",
+        "DEFAULT_ISSUE_TYPE=Story",
+        "SUBTASK_ISSUE_TYPE=Subtarea",
+        "FEATURE_ISSUE_TYPE=Feature",
+        "",
+        "# Configuración de la aplicación",
+        "BATCH_SIZE=10",
+        "DRY_RUN=false",
+        "ROLLBACK_ON_SUBTASK_FAILURE=true",
+        "",
+        "# Configuración de directorios",
+        "INPUT_DIRECTORY=entrada",
+        "LOGS_DIRECTORY=logs",
+        "PROCESSED_DIRECTORY=procesados"
+    ])
+
+    with open('.env', 'w', encoding='utf-8') as f:
+        f.write('\n'.join(env_content) + '\n')
 
 
 def setup_logging(settings: Settings, level: str = "INFO"):
@@ -111,6 +193,9 @@ def validate_command(file, rows):
     from src.presentation.formatters.output_formatter import OutputFormatter
     from src.application.use_cases.validate_file import ValidateFileUseCase
 
+    # Usar safe_init_settings para configuración interactiva
+    safe_init_settings()
+
     validate_use_case = ValidateFileUseCase()
     formatter = OutputFormatter()
 
@@ -127,6 +212,9 @@ def test_connection_command():
     """Prueba la conexión con Jira usando la configuración actual."""
     from src.presentation.formatters.output_formatter import OutputFormatter
     from src.application.use_cases.test_connection import TestConnectionUseCase
+
+    # Usar safe_init_settings para configuración interactiva
+    safe_init_settings()
 
     test_use_case = TestConnectionUseCase()
     formatter = OutputFormatter()
