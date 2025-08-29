@@ -67,7 +67,7 @@ def _configure_interactively(missing_fields):
     # Crear archivo .env con los valores proporcionados
     _create_env_file(env_values)
 
-    click.echo("\n✓ Archivo .env creado exitosamente")
+    click.echo("\n[OK] Archivo .env creado exitosamente")
     click.echo("Reiniciando configuración...")
 
     try:

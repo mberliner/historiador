@@ -69,16 +69,21 @@ class TestUserStoryValidation:
         
         assert "descripcion" in str(exc_info.value)
 
-    def test_criterio_aceptacion_required(self):
-        """Test that criterio_aceptacion is required."""
-        with pytest.raises(ValidationError) as exc_info:
-            UserStory(
-                titulo="Test Story",
-                descripcion="Test description",
-                criterio_aceptacion=""
-            )
+    def test_criterio_aceptacion_optional(self):
+        """Test that criterio_aceptacion is optional."""
+        story = UserStory(
+            titulo="Test Story",
+            descripcion="Test description",
+            criterio_aceptacion=None
+        )
+        assert story.criterio_aceptacion is None
         
-        assert "criterio_aceptacion" in str(exc_info.value)
+        # También debe funcionar sin especificar el campo
+        story_empty = UserStory(
+            titulo="Test Story",
+            descripcion="Test description"
+        )
+        assert story_empty.criterio_aceptacion is None
 
     def test_missing_required_fields(self):
         """Test validation with missing required fields."""

@@ -11,8 +11,8 @@ class UserStory(BaseModel):
         description="Título de la historia de usuario")
     descripcion: str = Field(
         ..., min_length=1, description="Descripción detallada de la historia")
-    criterio_aceptacion: str = Field(
-        ..., min_length=1, description="Criterios de aceptación")
+    criterio_aceptacion: Optional[str] = Field(
+        default=None, description="Criterios de aceptación")
     subtareas: Optional[List[str]] = Field(
         default=None, description="Lista de subtareas separadas por ;")
     parent: Optional[str] = Field(

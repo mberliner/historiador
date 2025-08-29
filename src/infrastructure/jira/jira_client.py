@@ -146,7 +146,7 @@ class JiraClient:
                 })
 
                 # Dividir criterios por ';' y crear lista formateada
-                criterios = [criterio.strip() for criterio in story.criterio_aceptacion.split(';') if criterio.strip()]
+                criterios = [criterio.strip() for criterio in story.criterio_aceptacion.split(';') if criterio.strip()] if story.criterio_aceptacion else []
 
                 if criterios and len(criterios) > 1:
                     # Múltiples criterios separados por ';'
@@ -183,7 +183,7 @@ class JiraClient:
             # Agregar criterios de aceptación al campo personalizado si está configurado
             if self.settings.acceptance_criteria_field:
                 # Dividir criterios por ';' y crear una lista formateada
-                criterios = [criterio.strip() for criterio in story.criterio_aceptacion.split(';') if criterio.strip()]
+                criterios = [criterio.strip() for criterio in story.criterio_aceptacion.split(';') if criterio.strip()] if story.criterio_aceptacion else []
 
                 # Crear contenido con cada criterio en un párrafo separado
                 content_paragraphs = []
@@ -196,7 +196,7 @@ class JiraClient:
                     })
 
                 # Si no hay criterios separados por ';', usar el texto completo
-                if not content_paragraphs:
+                if not content_paragraphs and story.criterio_aceptacion:
                     content_paragraphs = [{
                         "type": "paragraph",
                         "content": [
@@ -204,11 +204,13 @@ class JiraClient:
                         ]
                     }]
 
-                issue_data["fields"][self.settings.acceptance_criteria_field] = {
-                    "type": "doc",
-                    "version": 1,
-                    "content": content_paragraphs
-                }
+                # Solo agregar el campo si hay contenido
+                if content_paragraphs:
+                    issue_data["fields"][self.settings.acceptance_criteria_field] = {
+                        "type": "doc",
+                        "version": 1,
+                        "content": content_paragraphs
+                    }
 
             # Vincular con parent si existe
             if parent_key:
