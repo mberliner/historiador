@@ -11,12 +11,35 @@ class UserStory(BaseModel):
         description="Título de la historia de usuario")
     descripcion: str = Field(
         ..., min_length=1, description="Descripción detallada de la historia")
-    criterio_aceptacion: Optional[str] = Field(
-        default=None, description="Criterios de aceptación")
+    criterio_aceptacion: Optional[List[str]] = Field(
+        default=None, description="Lista de criterios de aceptación separados por ; o \\n")
     subtareas: Optional[List[str]] = Field(
-        default=None, description="Lista de subtareas separadas por ;")
+        default=None, description="Lista de subtareas separadas por ; o \\n")
     parent: Optional[str] = Field(
         default=None, description="Key del Epic o Feature padre")
+
+    @validator('criterio_aceptacion', pre=True)
+    def parse_criterio_aceptacion(cls, v):  # pylint: disable=no-self-argument
+        """Procesa el campo criterio_aceptacion dividiéndolo por ; y \\n.
+
+        Args:
+            v: Valor del campo criterio_aceptacion
+
+        Returns:
+            Lista de criterios o None
+        """
+        if v is None or v == '':
+            return None
+        if isinstance(v, str):
+            # Permitir separadores: ';' y salto de línea '\\n'
+            # Primero dividir por ';', luego por '\\n' en cada parte
+            criterios = []
+            for part in v.split(';'):
+                for criterio in part.split('\n'):
+                    if criterio.strip():
+                        criterios.append(criterio.strip())
+            return criterios if criterios else None
+        return v
 
     @validator('subtareas', pre=True)
     def parse_subtareas(cls, v):  # pylint: disable=no-self-argument

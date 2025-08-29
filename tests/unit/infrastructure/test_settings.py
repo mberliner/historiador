@@ -27,7 +27,7 @@ class TestSettingsInit:
         
         # Check defaults from test file
         assert settings.default_issue_type == 'Story'
-        assert settings.subtask_issue_type == 'Sub-task'
+        assert settings.subtask_issue_type == 'Subtarea'
         assert settings.batch_size == 10
         assert settings.dry_run is False
         assert settings.acceptance_criteria_field == ''  # Empty string in test file
@@ -310,7 +310,7 @@ class TestSettingsDefaults:
         
         # Test all values from test file
         assert settings.default_issue_type == 'Story'
-        assert settings.subtask_issue_type == 'Sub-task'
+        assert settings.subtask_issue_type == 'Subtarea'
         assert settings.batch_size == 10
         assert settings.dry_run is False
         assert settings.acceptance_criteria_field == ''  # Empty in test file

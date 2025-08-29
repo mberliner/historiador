@@ -292,7 +292,7 @@ class TestProcessFile:
         assert isinstance(stories[0], UserStory)
         assert stories[0].titulo == 'Historia 1'
         assert stories[0].descripcion == 'Descripción 1'
-        assert stories[0].criterio_aceptacion == 'Criterio 1'
+        assert stories[0].criterio_aceptacion == ['Criterio 1']
         assert stories[0].subtareas is None
         assert stories[0].parent is None
 

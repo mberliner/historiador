@@ -215,7 +215,7 @@ class TestValidateSubtaskIssueType:
         # Mock issue types with subtask
         mock_issue_types = [
             {"id": "1", "name": "Story", "subtask": False},
-            {"id": "2", "name": "Sub-task", "subtask": True},  # This matches default
+            {"id": "2", "name": "Subtarea", "subtask": True},  # This matches project setting
             {"id": "3", "name": "Task", "subtask": False}
         ]
         
@@ -287,14 +287,14 @@ class TestValidateSubtaskIssueType:
         # Mock issue types where some don't have subtask field
         mock_issue_types = [
             {"id": "1", "name": "Story"},  # No subtask field
-            {"id": "2", "name": "Sub-task", "subtask": True},
+            {"id": "2", "name": "Subtarea", "subtask": True},
             {"id": "3", "name": "Task", "subtask": False}
         ]
         
         with patch.object(client, 'get_issue_types', return_value=mock_issue_types):
             result = client.validate_subtask_issue_type()
             
-            assert result is True  # Should find Sub-task
+            assert result is True  # Should find Subtarea
 
     def test_validate_subtask_issue_type_custom_subtask_name(self):
         """Test subtask type validation with custom subtask name."""

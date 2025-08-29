@@ -145,11 +145,11 @@ class JiraClient:
                     ]
                 })
 
-                # Dividir criterios por ';' y crear lista formateada
-                criterios = [criterio.strip() for criterio in story.criterio_aceptacion.split(';') if criterio.strip()] if story.criterio_aceptacion else []
+                # Los criterios ya vienen como lista procesada desde UserStory
+                criterios = story.criterio_aceptacion
 
                 if criterios and len(criterios) > 1:
-                    # Múltiples criterios separados por ';'
+                    # Múltiples criterios - mostrar como lista con viñetas
                     for criterio in criterios:
                         description_content.append({
                             "type": "paragraph",
@@ -158,11 +158,11 @@ class JiraClient:
                             ]
                         })
                 else:
-                    # Un solo criterio o sin separador ';'
+                    # Un solo criterio - mostrar como texto plano
                     description_content.append({
                         "type": "paragraph",
                         "content": [
-                            {"type": "text", "text": story.criterio_aceptacion}
+                            {"type": "text", "text": criterios[0] if criterios else ""}
                         ]
                     })
 
@@ -181,9 +181,9 @@ class JiraClient:
             }
 
             # Agregar criterios de aceptación al campo personalizado si está configurado
-            if self.settings.acceptance_criteria_field:
-                # Dividir criterios por ';' y crear una lista formateada
-                criterios = [criterio.strip() for criterio in story.criterio_aceptacion.split(';') if criterio.strip()] if story.criterio_aceptacion else []
+            if self.settings.acceptance_criteria_field and story.criterio_aceptacion:
+                # Los criterios ya vienen como lista procesada desde UserStory
+                criterios = story.criterio_aceptacion
 
                 # Crear contenido con cada criterio en un párrafo separado
                 content_paragraphs = []
@@ -194,15 +194,6 @@ class JiraClient:
                             {"type": "text", "text": f"• {criterio}"}
                         ]
                     })
-
-                # Si no hay criterios separados por ';', usar el texto completo
-                if not content_paragraphs and story.criterio_aceptacion:
-                    content_paragraphs = [{
-                        "type": "paragraph",
-                        "content": [
-                            {"type": "text", "text": story.criterio_aceptacion}
-                        ]
-                    }]
 
                 # Solo agregar el campo si hay contenido
                 if content_paragraphs:

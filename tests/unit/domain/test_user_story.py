@@ -18,7 +18,7 @@ class TestUserStoryValidation:
         
         assert story.titulo == "Test Story"
         assert story.descripcion == "Test description"
-        assert story.criterio_aceptacion == "Test criteria"
+        assert story.criterio_aceptacion == ["Test criteria"]
         assert story.subtareas is None
         assert story.parent is None
 
@@ -206,6 +206,111 @@ class TestSubtareasParser:
         assert story.subtareas == task_list
 
 
+class TestCriteriosAceptacionParser:
+    """Test criterios de aceptacion parsing functionality."""
+
+    def test_criterios_none(self):
+        """Test criterios as None."""
+        story = UserStory(
+            titulo="Test Story",
+            descripcion="Test description", 
+            criterio_aceptacion=None
+        )
+        
+        assert story.criterio_aceptacion is None
+
+    def test_criterios_empty_string(self):
+        """Test criterios as empty string."""
+        story = UserStory(
+            titulo="Test Story",
+            descripcion="Test description",
+            criterio_aceptacion=""
+        )
+        
+        assert story.criterio_aceptacion is None
+
+    def test_criterios_single_criterion(self):
+        """Test criterios with single criterion."""
+        story = UserStory(
+            titulo="Test Story",
+            descripcion="Test description",
+            criterio_aceptacion="Single criterion"
+        )
+        
+        assert story.criterio_aceptacion == ["Single criterion"]
+
+    def test_criterios_semicolon_separated(self):
+        """Test criterios separated by semicolon."""
+        story = UserStory(
+            titulo="Test Story", 
+            descripcion="Test description",
+            criterio_aceptacion="Criterion 1;Criterion 2;Criterion 3"
+        )
+        
+        assert story.criterio_aceptacion == ["Criterion 1", "Criterion 2", "Criterion 3"]
+
+    def test_criterios_newline_separated(self):
+        """Test criterios separated by newlines."""
+        story = UserStory(
+            titulo="Test Story",
+            descripcion="Test description",
+            criterio_aceptacion="Criterion 1\nCriterion 2\nCriterion 3"
+        )
+        
+        assert story.criterio_aceptacion == ["Criterion 1", "Criterion 2", "Criterion 3"]
+
+    def test_criterios_mixed_separators(self):
+        """Test criterios with mixed separators."""
+        story = UserStory(
+            titulo="Test Story",
+            descripcion="Test description", 
+            criterio_aceptacion="Criterion 1;Criterion 2\nCriterion 3;Criterion 4"
+        )
+        
+        assert story.criterio_aceptacion == ["Criterion 1", "Criterion 2", "Criterion 3", "Criterion 4"]
+
+    def test_criterios_with_extra_whitespace(self):
+        """Test criterios parsing with extra whitespace."""
+        story = UserStory(
+            titulo="Test Story",
+            descripcion="Test description",
+            criterio_aceptacion="  Criterion 1  ;  Criterion 2  \n  Criterion 3  "
+        )
+        
+        assert story.criterio_aceptacion == ["Criterion 1", "Criterion 2", "Criterion 3"]
+
+    def test_criterios_with_empty_parts(self):
+        """Test criterios parsing with empty parts."""
+        story = UserStory(
+            titulo="Test Story",
+            descripcion="Test description",
+            criterio_aceptacion="Criterion 1;;Criterion 2;\n;Criterion 3"
+        )
+        
+        assert story.criterio_aceptacion == ["Criterion 1", "Criterion 2", "Criterion 3"]
+
+    def test_criterios_only_separators(self):
+        """Test criterios with only separators."""
+        story = UserStory(
+            titulo="Test Story",
+            descripcion="Test description",
+            criterio_aceptacion=";;;\n\n;"
+        )
+        
+        assert story.criterio_aceptacion is None
+
+    def test_criterios_already_list(self):
+        """Test criterios when already a list."""
+        criteria_list = ["Criterion 1", "Criterion 2", "Criterion 3"]
+        story = UserStory(
+            titulo="Test Story",
+            descripcion="Test description",
+            criterio_aceptacion=criteria_list
+        )
+        
+        assert story.criterio_aceptacion == criteria_list
+
+
 class TestParentField:
     """Test parent field functionality."""
 
@@ -270,7 +375,7 @@ class TestUserStoryComplexScenarios:
         
         assert story.titulo == "Complete Story"
         assert "detailed requirements" in story.descripcion
-        assert story.criterio_aceptacion.count(";") == 2
+        assert len(story.criterio_aceptacion) == 3
         assert len(story.subtareas) == 4
         assert story.parent == "EPIC-456"
 
@@ -286,7 +391,7 @@ class TestUserStoryComplexScenarios:
         
         assert "ñ" in story.titulo
         assert "áéíóú" in story.descripcion
-        assert "ção" in story.criterio_aceptacion
+        assert "ção" in story.criterio_aceptacion[0]
         assert len(story.subtareas) == 2
 
     def test_story_serialization(self):
