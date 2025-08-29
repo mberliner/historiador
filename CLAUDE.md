@@ -40,16 +40,17 @@ python -m PyInstaller --onefile --name historiador --add-data=".env.example:." s
 ## Configuración Específica del Proyecto
 - **Tipo de subtarea**: "Subtarea" (no "Sub-task" como es común en otros proyectos)
 - **Tipo de feature**: "Feature" (configurable via FEATURE_ISSUE_TYPE)
-- **Campo personalizado criterios**: Usar variable ACCEPTANCE_CRITERIA_FIELD en .env
+- **Campo personalizado criterios**: Usar variable ACCEPTANCE_CRITERIA_FIELD en .env (opcional)
 - **Separadores de subtareas**: `;` y salto de línea (`\n`)
+- **Separadores de criterios**: `;` y salto de línea (`\n`)
 - **Rollback opcional**: ROLLBACK_ON_SUBTASK_FAILURE=true elimina historia si fallan todas las subtareas
 - **Gestión de parents**: Detección automática entre keys existentes y descripciones de features
 
 ## Orden de Columnas en Archivos de Entrada
 1. `titulo` (requerida)
 2. `descripcion` (requerida)
-3. `subtareas` (opcional) - separadas por `;` o salto de línea
-4. `criterio_aceptacion` (requerida)
+3. `subtareas` (opcional) - separadas por `;` o salto de línea (`\n`)
+4. `criterio_aceptacion` (opcional) - criterios separados por `;` o salto de línea (`\n`)
 5. `parent` (opcional) - Key existente (PROJ-123) o descripción para crear feature
 
 ## Arquitectura del Código

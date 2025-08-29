@@ -115,17 +115,138 @@ python src/main.py validate -f archivo.csv [OPCIONES]
 python src/main.py validate -f entrada/historias.csv --rows 10
 ```
 
-### Comando `diagnose`
+### Comando `diagnose` - Diagnóstico Automático de Configuración
 
 ```bash
+# Con ejecutable (recomendado)
+./historiador diagnose -p PROYECTO
+
+# Con Python
 python src/main.py diagnose -p PROYECTO
+
+# Con logging detallado
+./historiador diagnose -p PROYECTO --log-level DEBUG
 ```
 
-Verifica:
-- ✅ Conexión con Jira
-- ✅ Tipos de issue válidos
-- ✅ Campos obligatorios para Features
-- ✅ Permisos de creación
+#### **Propósito Principal**
+Herramienta de **diagnóstico automático** que detecta y valida la configuración necesaria para crear Features en Jira, especialmente los **campos obligatorios** que pueden causar errores al crear issues.
+
+#### **¿Cuándo Usar Diagnose?**
+
+**Síntomas que indican necesidad:**
+- ❌ Error 400 "Campo X es obligatorio" al crear Features
+- ❌ Features no se crean automáticamente desde descripciones  
+- ❌ Fallos en la creación de parents para historias
+- 🔧 Configuración nueva de proyecto Jira
+- 🔄 Cambios en tipos de issue en Jira
+
+#### **Validaciones Ejecutadas**
+
+1. **🔗 Conexión con Jira**
+   - Valida credenciales (URL, email, API token)
+   - Confirma acceso a API REST de Jira
+
+2. **📁 Validación de Proyecto** 
+   - Verifica que PROJECT_KEY existe y es accesible
+   - Confirma permisos de creación de issues
+
+3. **🎯 Validación de Tipo Feature**
+   - Verifica que FEATURE_ISSUE_TYPE ("Feature" por defecto) existe
+   - Confirma que no es un subtask
+
+4. **🔍 Detección Automática de Campos Obligatorios**
+   - Consulta `/rest/api/3/issue/createmeta` con expand de fields
+   - Analiza campos requeridos para el tipo Feature
+   - Detecta automáticamente campo "Epic Name" si existe
+   - Excluye campos básicos ya manejados (project, summary, issuetype, description)
+
+#### **Ejemplo de Salida**
+
+```
+===========================================================
+DIAGNÓSTICO DE CONFIGURACIÓN PARA FEATURES
+===========================================================
+
+✓ Conexión con Jira exitosa
+✓ Proyecto MYPROJ válido  
+✓ Tipo de feature 'Feature' válido
+
+CAMPOS OBLIGATORIOS ENCONTRADOS:
+   * customfield_10014: Epic Name
+   * customfield_10016: Story Points (valores: [1,2,3,5,8])
+
+CONFIGURACIÓN SUGERIDA PARA .env:
+FEATURE_REQUIRED_FIELDS='{"customfield_10014": "Epic Name", "customfield_10016": 3}'
+
+NOTA: Revisa los logs para ver todos los valores disponibles
+
+CONFIGURACIÓN ACTUAL:
+   FEATURE_ISSUE_TYPE: Feature
+   FEATURE_REQUIRED_FIELDS: No configurado
+
+Diagnóstico completado
+```
+
+#### **Casos de Uso Específicos**
+
+**1. 🆕 Proyecto Nuevo:**
+```bash
+./historiador diagnose -p NEWPROJ
+```
+- Detecta toda la configuración necesaria desde cero
+- Sugiere valores para FEATURE_REQUIRED_FIELDS
+
+**2. 🔄 Cambios en Jira:**
+```bash  
+./historiador diagnose -p EXISTINGPROJ
+```
+- Re-valida configuración después de cambios en Jira
+- Detecta nuevos campos obligatorios
+
+**3. 🐛 Troubleshooting:**
+```bash
+./historiador diagnose -p PROJ --log-level DEBUG
+```
+- Muestra información detallada de todos los campos disponibles
+- Útil para depurar problemas de creación de Features
+
+#### **Integración con Flujo de Trabajo**
+
+**Orden recomendado de comandos:**
+
+```bash
+1. ./historiador test-connection                    # Verificar conectividad básica
+2. ./historiador diagnose -p PROJECT               # Detectar configuración necesaria  
+3. # Actualizar .env con FEATURE_REQUIRED_FIELDS sugerido
+4. ./historiador validate -f archivo.csv           # Validar estructura de datos
+5. ./historiador --dry-run -p PROJECT              # Probar sin crear issues
+6. ./historiador -p PROJECT                        # Procesamiento real
+```
+
+#### **Configuración Automática Generada**
+
+El diagnóstico sugiere configuración JSON para `.env`:
+
+```env
+# Ejemplo de salida del diagnose  
+FEATURE_REQUIRED_FIELDS='{"customfield_10014": "Epic Name", "customfield_10016": 3}'
+```
+
+**Tipos de campos detectados:**
+- **📝 Epic Name**: Se identifica por nombre que contenga "epic" y "name"
+- **⚡ Campos obligatorios**: Cualquier field con "required": true
+- **📋 Valores permitidos**: Lista de allowedValues para selects/dropdowns
+- **🔧 Tipos de datos**: String, number, array, object según esquema Jira
+
+#### **Ventajas del Diagnóstico Automático**
+
+- ✅ **Prevención de errores**: Evita errores 400 al crear Features  
+- ✅ **Configuración automática**: Genera la config JSON necesaria  
+- ✅ **Detección inteligente**: Identifica Epic Name automáticamente  
+- ✅ **Validación completa**: Verifica conectividad + permisos + configuración  
+- ✅ **Troubleshooting**: Información detallada para debug  
+
+**💡 El comando `diagnose` es esencial para una configuración libre de errores y permite que la aplicación funcione correctamente con cualquier configuración de proyecto Jira.**
 
 ### Comando `test-connection`
 
@@ -143,7 +264,7 @@ Prueba conectividad y autenticación con Jira.
 |---------|-----------|-------------|---------|
 | `titulo` | ✅ | Título de la historia (máx 255 caracteres) | "Login de usuario" |
 | `descripcion` | ✅ | Descripción detallada | "Como usuario quiero autenticarme..." |
-| `criterio_aceptacion` | ✅ | Criterios separados por `;` | "Login exitoso;Error visible" |
+| `criterio_aceptacion` | ❌ | Criterios separados por `;` o `\n` | "Login exitoso;Error visible" |
 | `subtareas` | ❌ | Subtareas separadas por `;` o `\n` | "Crear formulario;Validar datos" |
 | `parent` | ❌ | Key existente o descripción | "PROJ-123" o "Sistema Login" |
 
@@ -153,12 +274,17 @@ Prueba conectividad y autenticación con Jira.
 criterio_aceptacion
 "Criterio único sin separador"
 "Criterio 1;Criterio 2;Criterio 3"
-"Dado que...;Cuando...;Entonces..."
+"Dado que...
+Cuando...
+Entonces..."
+""
 ```
 
 **Resultado en Jira**:
 - **Sin separador**: Texto plano
 - **Con separador `;`**: Lista con viñetas (•)
+- **Con salto de línea (`\n`)**: Lista con viñetas (•)
+- **Vacío**: Campo opcional, se omite
 
 ### Formato de Subtareas
 

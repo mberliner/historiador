@@ -1,90 +1,107 @@
-# Jira Batch Importer
+# Historiador - Jira Batch Importer
 
-Aplicación CLI para crear historias de usuario en Jira desde archivos Excel/CSV con gestión automática de subtareas y Features.
+Aplicación CLI que importa historias de usuario desde archivos Excel/CSV hacia Jira con creación automática de subtareas y Features.
 
 ## 🚀 Inicio Rápido
 
-**Requisitos**: Python 3.8+
+### Opción 1: Usar Ejecutable (Recomendado)
+
+1. **Descargar ejecutable** desde [releases](https://github.com/mberliner/historiador/releases) o generarlo:
+   ```bash
+   pip install pyinstaller
+   pyinstaller historiador-clean.spec --clean
+   ```
+
+2. **Configurar (automático)** - La primera vez te pedirá los datos:
+   ```bash
+   ./historiador test-connection
+   ```
+   
+3. **Procesar archivos:**
+   ```bash
+   # Modo prueba (sin modificar Jira)
+   ./historiador --dry-run
+   
+   # Procesamiento real
+   ./historiador -p TU_PROYECTO
+   ```
+
+### Opción 2: Usar Python (Desarrollo)
 
 1. **Instalar dependencias:**
    ```bash
    pip install -r requirements.txt
-   # Para desarrollo:
-   pip install -r requirements-dev.txt
    ```
 
 2. **Configurar credenciales:**
    ```bash
    cp .env.example .env
-   # Editar .env con tus credenciales de Jira
+   # Editar .env con tus credenciales
    ```
 
-3. **Probar conexión:**
+3. **Usar comandos:**
    ```bash
    python src/main.py test-connection
-   ```
-
-4. **Procesar archivos:**
-   ```bash
-   # Modo prueba
    python src/main.py -p TU_PROYECTO --dry-run
-   
-   # Procesamiento real
-   python src/main.py -p TU_PROYECTO
    ```
-
-## ✨ Características Principales
-
-- ✅ **Procesamiento automático** de archivos CSV/Excel
-- ✅ **Creación automática de Features** desde descripciones
-- ✅ **Subtareas automáticas** con validación avanzada
-- ✅ **Prevención de duplicados** con normalización inteligente
-- ✅ **Modo dry-run** para pruebas seguras
-- ✅ **Rollback opcional** si fallan subtareas
-- ✅ **Reportes detallados** de procesamiento
 
 ## 📋 Formato de Archivo
 
-### Columnas Requeridas
-- `titulo`: Título de la historia
-- `descripcion`: Descripción detallada  
-- `criterio_aceptacion`: Criterios separados por `;`
-
-### Columnas Opcionales
-- `subtareas`: Lista separada por `;` o salto de línea
-- `parent`: Key existente (`PROJ-123`) **O** descripción para crear Feature
+### Columnas
+- `titulo` (**requerida**): Título de la historia de usuario
+- `descripcion` (**requerida**): Descripción detallada de la funcionalidad
+- `criterio_aceptacion` (**opcional**): Criterios separados por `;`
+- `subtareas` (**opcional**): Lista separada por `;` o salto de línea
+- `parent` (**opcional**): Key existente (`PROJ-123`) o descripción para crear Feature
 
 ### Ejemplo CSV
 ```csv
 titulo,descripcion,subtareas,criterio_aceptacion,parent
-"Login usuario","Como usuario quiero autenticarme","Crear formulario;Validar datos","Login exitoso con credenciales válidas;Error visible con credenciales inválidas","Sistema de Autenticación"
-"Dashboard admin","Como admin quiero ver métricas","Crear gráficos;Conectar BD","Dashboard carga en <3s;Datos actualizados","PROJ-50"
+"Login usuario","Como usuario quiero autenticarme","Crear formulario;Validar datos","Login exitoso;Error con credenciales inválidas","Sistema de Autenticación"
+"Dashboard admin","Como admin quiero ver métricas","Crear gráficos;Conectar BD","Dashboard carga en <3s","PROJ-50"
+"Logout","Como usuario quiero cerrar sesión","Limpiar sesión","Sesión cerrada correctamente",""
 ```
 
-## 🔧 Comandos Principales
+## 🔧 Comandos Disponibles
 
+### Con Ejecutable
 ```bash
 # Procesar todos los archivos en entrada/
-python src/main.py
+./historiador
 
-# Procesar todos los archivos en entrada e impactar en un proyecto jira especifico/
-python src/main.py -p KEY_PROYECTO
+# Para proyecto específico
+./historiador -p PROYECTO_KEY
 
-# Procesar archivo específico
-python src/main.py process -f archivo.csv -p PROYECTO
+# Modo prueba (sin crear en Jira)
+./historiador -p PROYECTO_KEY --dry-run
 
-# Validar archivo sin crear issues
-python src/main.py validate -f archivo.csv
+# Validar archivo
+./historiador validate -f archivo.csv
 
 # Diagnosticar configuración
-python src/main.py diagnose -p PROYECTO
-
-# Si tienes el ejecutable:
-historiador = python src/main.py
-
+./historiador diagnose -p PROYECTO_KEY
 ```
 
-## ⚙️ Configuración Básica (.env)
+### Con Python (equivalentes)
+```bash
+python src/main.py
+python src/main.py -p PROYECTO_KEY
+python src/main.py -p PROYECTO_KEY --dry-run
+python src/main.py validate -f archivo.csv
+python src/main.py diagnose -p PROYECTO_KEY
+```
+
+## ✨ Características
+
+- ✅ **Criterios de aceptación opcionales** - Campo no obligatorio
+- ✅ **Creación automática de Features** desde descripciones
+- ✅ **Subtareas automáticas** con validación
+- ✅ **Prevención de duplicados** con normalización
+- ✅ **Modo dry-run** para pruebas seguras
+- ✅ **Configuración interactiva** primera vez
+- ✅ **Procesamiento batch** de múltiples archivos
+
+## ⚙️ Configuración (.env)
 
 ```env
 # Jira (requerido)
@@ -102,43 +119,33 @@ ACCEPTANCE_CRITERIA_FIELD=customfield_10001
 ROLLBACK_ON_SUBTASK_FAILURE=false
 ```
 
-## 📁 Estructura del Proyecto
+### Obtener API Token
+1. Ve a https://id.atlassian.com/manage-profile/security/api-tokens
+2. Crea un nuevo token
+3. Usa tu email y el token en configuración
+
+## 📁 Estructura
 
 ```
 historiador/
-├── entrada/                    # Archivos CSV/Excel a procesar
-├── procesados/                 # Archivos procesados exitosamente  
-├── logs/                      # Logs de ejecución
-├── src/
-│   ├── presentation/          # CLI y formatters
-│   ├── application/           # Casos de uso e interfaces
-│   ├── domain/               # Entidades y repositorios
-│   ├── infrastructure/       # Implementaciones (Jira, archivos)
-│   └── main.py              # Punto de entrada
-├── requirements.txt
-├── .env                     # Configuración
-└── README.md
+├── entrada/           # Archivos CSV/Excel a procesar
+├── procesados/        # Archivos procesados exitosamente  
+├── logs/             # Logs de ejecución
+├── dist/             # Ejecutable generado
+└── src/              # Código fuente (desarrollo)
 ```
 
-## 🔍 Gestión Automática de Features
+## 🔍 Gestión de Features
 
 La aplicación distingue automáticamente:
-
 - **Keys existentes** (`PROJ-123`) → Se vincula directamente
 - **Descripciones** (`"Sistema de Login"`) → Se crea Feature automáticamente
-- **Descripciones similares** → Se reutilizan para evitar duplicados
-
-## 📖 Documentación Completa
-
-- **[DOCS.md](DOCS.md)**: Ejemplos avanzados, troubleshooting y configuración detallada
-- **[BUILD_OPTIMIZATION.md](BUILD_OPTIMIZATION.md)**: Detalles de optimización del ejecutable (83MB → 51MB)
-- **[CLAUDE.md](CLAUDE.md)**: Contexto técnico completo para desarrollo
+- **Similares** → Se reutilizan para evitar duplicados
 
 ## 🛠️ Generar Ejecutable
 
-### Recomendado (51MB optimizado):
+### Optimizado (51MB):
 ```bash
-pip install pyinstaller
 pyinstaller historiador-clean.spec --clean
 ```
 
@@ -146,22 +153,14 @@ pyinstaller historiador-clean.spec --clean
 ```bash
 # Comando directo (53MB)
 pyinstaller --onefile --name historiador \
-  --exclude-module pytest --exclude-module pylint --exclude-module black \
+  --exclude-module pytest --exclude-module pylint \
   --add-data=".env.example:." src/main.py --clean
 
-# Completo con dev tools (83MB)
-python -m PyInstaller --onefile --name historiador --add-data=".env.example:." src/main.py --clean
+# Con herramientas desarrollo (83MB)
+python -m PyInstaller --onefile --name historiador \
+  --add-data=".env.example:." src/main.py --clean
 ```
-
-El ejecutable optimizado se genera en `dist/historiador` (Linux/Mac) o `dist/historiador.exe` (Windows).
-
-## 📝 Obtener API Token
-
-1. Ve a https://id.atlassian.com/manage-profile/security/api-tokens
-2. Crea un nuevo token
-3. Usa tu email y el token en `.env`
 
 ---
 
-**Arquitectura**: Clean Architecture con 4 capas (Presentation, Application, Domain, Infrastructure)  
-**Calidad**: PyLint Score 8.96/10 | Test Coverage 80.58% | Ejecutable optimizado 51MB
+**Arquitectura**: Clean Architecture | **Calidad**: PyLint 8.9/10 | **Cobertura**: 80%+ | **Ejecutable**: 51MB optimizado
