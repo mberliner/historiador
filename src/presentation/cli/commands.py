@@ -1,12 +1,15 @@
 """Comandos de la CLI separados del main."""
+import json
 import logging
 import sys
 from pathlib import Path
 
 import click
+import requests
 from pydantic import ValidationError
 
 from src.infrastructure.settings import Settings
+from src.infrastructure.jira.metadata_detector import JiraMetadataDetector
 
 
 def safe_init_settings():
@@ -44,30 +47,38 @@ def _configure_interactively(missing_fields):
         'jira_url': 'URL de Jira (ej: https://company.atlassian.net)',
         'jira_email': 'Email del usuario de Jira',
         'jira_api_token': 'API Token de Jira',
-        'project_key': 'Clave del proyecto en Jira (ej: PROJ)',
-        'acceptance_criteria_field': 'ID del campo de criterios (ej: customfield_10001)'
+        'project_key': 'Clave del proyecto en Jira (ej: PROJ)'
     }
 
+    # Primero obtener los campos básicos de conexión
+    basic_fields = ['jira_url', 'jira_email', 'jira_api_token', 'project_key']
     for field_name, env_var in missing_fields:
+        if field_name not in basic_fields:
+            continue
+            
         description = field_descriptions.get(field_name, f"Valor para {field_name}")
 
         if field_name == 'jira_api_token':
             # Para API token usar hide_input para ocultar el valor
             value = click.prompt(f"{description}", hide_input=True, type=str)
-        elif field_name == 'acceptance_criteria_field':
-            # Campo opcional
-            value = click.prompt(f"{description} (opcional)", default="", show_default=False)
-            if not value:
-                continue
         else:
             value = click.prompt(f"{description}", type=str)
 
         env_values[env_var] = value
 
+    # Intentar conectar con Jira para obtener configuración automática
+    jira_config = _detect_jira_configuration(env_values)
+    if jira_config:
+        env_values.update(jira_config)
+        click.echo("\n✓ Configuración automática desde Jira completada")
+    else:
+        click.echo("\n⚠ No se pudo conectar con Jira para configuración automática")
+        click.echo("Se usarán valores por defecto")
+
     # Crear archivo .env con los valores proporcionados
     _create_env_file(env_values)
 
-    click.echo("\n[OK] Archivo .env creado exitosamente")
+    click.echo("\n✓ Archivo .env creado exitosamente")
     click.echo("Reiniciando configuración...")
 
     try:
@@ -75,6 +86,86 @@ def _configure_interactively(missing_fields):
     except ValidationError:
         click.echo("[ERROR] Error al cargar la nueva configuración.", err=True)
         sys.exit(1)
+
+
+def _detect_jira_configuration(env_values):
+    """Detecta configuración automáticamente desde Jira."""
+    try:
+        # Crear sesión de prueba
+        session = requests.Session()
+        session.auth = (env_values.get('JIRA_EMAIL', ''), env_values.get('JIRA_API_TOKEN', ''))
+        session.headers.update({
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        })
+
+        base_url = env_values.get('JIRA_URL', '').rstrip('/')
+        project_key = env_values.get('PROJECT_KEY', '')
+
+        # Probar conexión primero
+        response = session.get(f"{base_url}/rest/api/3/myself", timeout=10)
+        if response.status_code != 200:
+            return None
+
+        # Validar proyecto
+        response = session.get(f"{base_url}/rest/api/3/project/{project_key}", timeout=10)
+        if response.status_code != 200:
+            return None
+
+        click.echo(f"\n🔍 Analizando configuración de proyecto {project_key}...")
+
+        # Inicializar detector
+        detector = JiraMetadataDetector(session, base_url, project_key)
+        
+        # Detectar tipos de issue óptimos
+        type_suggestions = detector.suggest_optimal_types()
+        click.echo(f"✓ Tipos de issue detectados: {type_suggestions['default_issue_type']}, {type_suggestions['subtask_issue_type']}, {type_suggestions['feature_issue_type']}")
+
+        # Detectar campos de criterios de aceptación
+        criteria_fields = detector.detect_acceptance_criteria_fields()
+        selected_criteria_field = None
+        if criteria_fields:
+            click.echo(f"✓ {len(criteria_fields)} campo(s) de criterios encontrado(s)")
+            if len(criteria_fields) == 1:
+                selected_criteria_field = criteria_fields[0]['id']
+                click.echo(f"  → Usando: {criteria_fields[0]['name']} ({selected_criteria_field})")
+            else:
+                click.echo("  Campos disponibles:")
+                for i, field in enumerate(criteria_fields[:3]):
+                    click.echo(f"    [{i+1}] {field['name']} ({field['id']})")
+                choice = click.prompt("Seleccione campo de criterios (1 para el primero, 0 para ninguno)", 
+                                    type=int, default=1)
+                if 0 < choice <= len(criteria_fields):
+                    selected_criteria_field = criteria_fields[choice-1]['id']
+
+        # Detectar campos obligatorios para Features
+        feature_required, _ = detector.detect_feature_required_fields(
+            type_suggestions['feature_issue_type']
+        )
+        
+        config = {
+            'DEFAULT_ISSUE_TYPE': type_suggestions['default_issue_type'],
+            'SUBTASK_ISSUE_TYPE': type_suggestions['subtask_issue_type'],
+            'FEATURE_ISSUE_TYPE': type_suggestions['feature_issue_type']
+        }
+
+        if selected_criteria_field:
+            config['ACCEPTANCE_CRITERIA_FIELD'] = selected_criteria_field
+
+        if feature_required:
+            config['FEATURE_REQUIRED_FIELDS'] = json.dumps(feature_required)
+            click.echo(f"✓ {len(feature_required)} campo(s) obligatorio(s) detectado(s) para Features")
+            
+            # Mostrar información de los campos obligatorios detectados
+            for field_id, field_value in list(feature_required.items())[:2]:  # Mostrar máximo 2
+                if isinstance(field_value, dict) and 'id' in field_value:
+                    click.echo(f"  → Campo {field_id}: id={field_value['id']}")
+
+        return config
+
+    except Exception as e:
+        logging.debug("Error detectando configuración de Jira: %s", str(e))
+        return None
 
 
 def _create_env_file(env_values):
@@ -87,16 +178,26 @@ def _create_env_file(env_values):
         f"PROJECT_KEY={env_values.get('PROJECT_KEY', '')}",
     ]
 
-    # Agregar campo opcional si fue proporcionado
+    # Agregar campo de criterios si fue detectado
     if 'ACCEPTANCE_CRITERIA_FIELD' in env_values:
         env_content.append(f"ACCEPTANCE_CRITERIA_FIELD={env_values['ACCEPTANCE_CRITERIA_FIELD']}")
 
     env_content.extend([
         "",
-        "# Configuración de tipos de issues",
-        "DEFAULT_ISSUE_TYPE=Story",
-        "SUBTASK_ISSUE_TYPE=Subtarea",
-        "FEATURE_ISSUE_TYPE=Feature",
+        "# Configuración de tipos de issues (detectados automáticamente)",
+        f"DEFAULT_ISSUE_TYPE={env_values.get('DEFAULT_ISSUE_TYPE', 'Story')}",
+        f"SUBTASK_ISSUE_TYPE={env_values.get('SUBTASK_ISSUE_TYPE', 'Subtarea')}",
+        f"FEATURE_ISSUE_TYPE={env_values.get('FEATURE_ISSUE_TYPE', 'Feature')}",
+    ])
+
+    # Agregar campos obligatorios de Features si fueron detectados
+    if 'FEATURE_REQUIRED_FIELDS' in env_values:
+        env_content.extend([
+            "# Campos obligatorios para Features (detectados automáticamente)",
+            f"FEATURE_REQUIRED_FIELDS={env_values['FEATURE_REQUIRED_FIELDS']}"
+        ])
+
+    env_content.extend([
         "",
         "# Configuración de la aplicación",
         "BATCH_SIZE=10",
