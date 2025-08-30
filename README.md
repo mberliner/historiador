@@ -1,60 +1,77 @@
 # Historiador - Jira Batch Importer
 
-Aplicación CLI que importa historias de usuario desde archivos Excel/CSV hacia Jira con creación automática de subtareas y Features.
+**Automatiza la creación masiva de historias de usuario en Jira** desde archivos Excel/CSV con subtareas automáticas, criterios de aceptación y vinculación a Features.
 
-## 🚀 Inicio Rápido
+## 💡 ¿Qué hace?
 
-### Opción 1: Usar Ejecutable (Recomendado)
+- **Importa historias masivamente** desde CSV/Excel a Jira
+- **Crea subtareas automáticamente** para cada historia
+- **Genera Features** automáticamente desde descripciones
+- **Valida archivos** antes del procesamiento 
+- **Modo dry-run** para pruebas sin modificar Jira
+- **Configuración interactiva** la primera vez que lo usas
 
-1. **Descargar ejecutable** desde [releases](https://github.com/mberliner/historiador/releases) o generarlo:
-   ```bash
-   pip install pyinstaller
-   pyinstaller historiador-clean.spec --clean
-   ```
+## 📥 Descarga
 
-2. **Configurar (automático)** - La primera vez te pedirá los datos:
-   ```bash
-   ./historiador test-connection
-   ```
-   
-3. **Procesar archivos:**
-   ```bash
-   # Modo prueba (sin modificar Jira)
-   ./historiador --dry-run
-   
-   # Procesamiento real
-   ./historiador -p TU_PROYECTO
-   ```
+Descarga el ejecutable desde [releases](https://github.com/mberliner/historiador/releases) o genéralo:
+```bash
+pip install pyinstaller
+pyinstaller historiador-clean.spec --clean
+```
 
-### Opción 2: Usar Python (Desarrollo)
+## 🚀 Comandos del Ejecutable
 
-1. **Instalar dependencias:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+### Procesamiento Automático
+```bash
+# Procesa TODOS los archivos en entrada/
+./historiador
 
-2. **Configurar credenciales:**
-   ```bash
-   cp .env.example .env
-   # Editar .env con tus credenciales
-   ```
+# Procesa archivos de un proyecto específico
+./historiador -p PROYECTO_KEY
 
-3. **Usar comandos:**
-   ```bash
-   python src/main.py test-connection
-   python src/main.py -p TU_PROYECTO --dry-run
-   ```
+# Modo prueba - NO modifica Jira
+./historiador --dry-run
+./historiador -p PROYECTO_KEY --dry-run
+```
+
+### Validación y Diagnóstico
+```bash
+# Valida archivo sin crear nada en Jira
+./historiador validate -f entrada/archivo.csv
+
+# Diagnostica campos obligatorios del proyecto
+./historiador diagnose -p PROYECTO_KEY
+
+# Prueba conexión y configuración
+./historiador test-connection
+```
+
+### Procesamiento Específico
+```bash
+# Procesa archivo específico
+./historiador process -f entrada/archivo.csv -p PROYECTO_KEY
+
+# Modo dry-run para archivo específico
+./historiador process -f entrada/archivo.csv -p PROYECTO_KEY --dry-run
+```
 
 ## 📋 Formato de Archivo
 
-### Columnas
-- `titulo` (**requerida**): Título de la historia de usuario
-- `descripcion` (**requerida**): Descripción detallada de la funcionalidad
-- `criterio_aceptacion` (**opcional**): Criterios separados por `;`
-- `subtareas` (**opcional**): Lista separada por `;` o salto de línea
-- `parent` (**opcional**): Key existente (`PROJ-123`) o descripción para crear Feature
+**Columnas requeridas:**
+- `titulo` - Título de la historia de usuario
+- `descripcion` - Descripción detallada de la funcionalidad
 
-### Ejemplo CSV
+**Columnas opcionales:**
+- `criterio_aceptacion` - Criterios separados por `;`
+- `subtareas` - Lista separada por `;` o salto de línea
+- `parent` - Key existente (`PROJ-123`) o descripción para crear Feature
+
+**Campo parent:**
+- Key existente (`PROJ-123`) → Se vincula directamente
+- Descripción (`"Sistema de Login"`) → Se crea Feature automáticamente
+- Features similares → Se reutilizan para evitar duplicados
+
+**Ejemplo CSV:**
 ```csv
 titulo,descripcion,subtareas,criterio_aceptacion,parent
 "Login usuario","Como usuario quiero autenticarme","Crear formulario;Validar datos","Login exitoso;Error con credenciales inválidas","Sistema de Autenticación"
@@ -62,105 +79,47 @@ titulo,descripcion,subtareas,criterio_aceptacion,parent
 "Logout","Como usuario quiero cerrar sesión","Limpiar sesión","Sesión cerrada correctamente",""
 ```
 
-## 🔧 Comandos Disponibles
+## ⚙️ Configuración
 
-### Con Ejecutable
+**Primera vez:** La aplicación te pedirá los datos automáticamente:
 ```bash
-# Procesar todos los archivos en entrada/
-./historiador
-
-# Para proyecto específico
-./historiador -p PROYECTO_KEY
-
-# Modo prueba (sin crear en Jira)
-./historiador -p PROYECTO_KEY --dry-run
-
-# Validar archivo
-./historiador validate -f archivo.csv
-
-# Diagnosticar configuración
-./historiador diagnose -p PROYECTO_KEY
+./historiador test-connection
 ```
 
-### Con Python (equivalentes)
-```bash
-python src/main.py
-python src/main.py -p PROYECTO_KEY
-python src/main.py -p PROYECTO_KEY --dry-run
-python src/main.py validate -f archivo.csv
-python src/main.py diagnose -p PROYECTO_KEY
-```
-
-## ✨ Características
-
-- ✅ **Criterios de aceptación opcionales** - Campo no obligatorio
-- ✅ **Creación automática de Features** desde descripciones
-- ✅ **Subtareas automáticas** con validación
-- ✅ **Prevención de duplicados** con normalización
-- ✅ **Modo dry-run** para pruebas seguras
-- ✅ **Configuración interactiva** primera vez
-- ✅ **Procesamiento batch** de múltiples archivos
-
-## ⚙️ Configuración (.env)
-
+**Manual (.env):**
 ```env
-# Jira (requerido)
 JIRA_URL=https://empresa.atlassian.net
 JIRA_EMAIL=email@empresa.com
 JIRA_API_TOKEN=tu-token-aqui
 PROJECT_KEY=PROJ
-
-# Tipos de issue
-SUBTASK_ISSUE_TYPE=Subtarea
-FEATURE_ISSUE_TYPE=Feature
-
-# Opcional
-ACCEPTANCE_CRITERIA_FIELD=customfield_10001
-ROLLBACK_ON_SUBTASK_FAILURE=false
 ```
 
-### Obtener API Token
-1. Ve a https://id.atlassian.com/manage-profile/security/api-tokens
-2. Crea un nuevo token
-3. Usa tu email y el token en configuración
+**Obtener API Token:** [Atlassian API Tokens](https://id.atlassian.com/manage-profile/security/api-tokens)
 
-## 📁 Estructura
+## 📁 Directorios
 
 ```
-historiador/
-├── entrada/           # Archivos CSV/Excel a procesar
+├── entrada/           # Tus archivos CSV/Excel aquí
 ├── procesados/        # Archivos procesados exitosamente  
 ├── logs/             # Logs de ejecución
-├── dist/             # Ejecutable generado
-└── src/              # Código fuente (desarrollo)
+└── dist/             # Ejecutable descargado
 ```
 
-## 🔍 Gestión de Features
+## 🔧 Desarrollo
 
-La aplicación distingue automáticamente:
-- **Keys existentes** (`PROJ-123`) → Se vincula directamente
-- **Descripciones** (`"Sistema de Login"`) → Se crea Feature automáticamente
-- **Similares** → Se reutilizan para evitar duplicados
+**Instalar dependencias:**
+```bash
+pip install -r requirements.txt
+cp .env.example .env  # Editar con tus credenciales
+```
 
-## 🛠️ Generar Ejecutable
+**Usar con Python:**
+```bash
+python src/main.py test-connection
+python src/main.py --dry-run
+```
 
-### Optimizado (51MB):
+**Generar ejecutable:**
 ```bash
 pyinstaller historiador-clean.spec --clean
 ```
-
-### Alternativas:
-```bash
-# Comando directo (53MB)
-pyinstaller --onefile --name historiador \
-  --exclude-module pytest --exclude-module pylint \
-  --add-data=".env.example:." src/main.py --clean
-
-# Con herramientas desarrollo (83MB)
-python -m PyInstaller --onefile --name historiador \
-  --add-data=".env.example:." src/main.py --clean
-```
-
----
-
-**Arquitectura**: Clean Architecture | **Calidad**: PyLint 8.9/10 | **Cobertura**: 80%+ | **Ejecutable**: 51MB optimizado

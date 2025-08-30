@@ -333,7 +333,7 @@ def test_connection_command():
 @click.option('--log-level', default='INFO',
               type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR']))
 def diagnose_command(project, log_level):
-    """Diagnostica configuración y campos obligatorios para features."""
+    """Diagnostica configuración y campos obligatorios para historias y features."""
     from src.presentation.formatters.output_formatter import OutputFormatter
     from src.application.use_cases.diagnose_features import DiagnoseFeaturesUseCase
 

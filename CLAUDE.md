@@ -365,8 +365,10 @@ Los siguientes "agentes" están definidos como secuencias de comandos especializ
 **Criterios de éxito**: 
 - PyLint score ≥8.0
 - Cobertura de tests ≥80%
-- Todos los tests pasan
+- **CRÍTICO**: Todos los tests pasan al 100%
 - Ejecutable generado correctamente
+
+**⚠️ REGLA DE CALIDAD**: El qa-agent debe FALLAR si hay tests fallidos. No es aceptable aprobar calidad con tests rotos.
 
 ### build-agent
 **Comando**: `build-agent`
@@ -384,7 +386,7 @@ Los siguientes "agentes" están definidos como secuencias de comandos especializ
 9. Generar reporte de build con tamaño del ejecutable
 
 **Criterios de éxito**:
-- qa-agent pasa completamente
+- qa-agent pasa completamente (incluyendo todos los tests)
 - Ejecutable optimizado generado sin errores (~52MB vs 83MB estándar)
 - Comandos básicos funcionan correctamente
 - Tests de funcionalidad básica pasan
@@ -451,7 +453,7 @@ Para `tests`:
 2. Analizar errores de importación y runtime
 3. Sugerir correcciones específicas para cada fallo
 4. Aplicar fixes automáticos para problemas comunes
-5. Si existen test fallidos corregir, no es aceptable un test fallando
+5. **CRÍTICO**: Si existen test fallidos corregir, no es aceptable un test fallando
 
 Para `all`:
 1. Ejecutar ambos secuencialmente
@@ -460,8 +462,13 @@ Para `all`:
 
 **Criterios de éxito**:
 - Sin errores críticos de pylint
-- Tests ejecutables y passing
+- **OBLIGATORIO**: Tests ejecutables y passing al 100%
 - Código funcionalmente equivalente
+
+**REGLA CRÍTICA DE CALIDAD**:
+❌ **INACEPTABLE**: Cualquier test fallando en el repositorio
+✅ **OBLIGATORIO**: Todos los tests deben pasar antes de cualquier commit o release
+⚠️ **IMPORTANTE**: Los tests fallidos indican regresiones o cambios no compatibles que deben corregirse inmediatamente
 
 ### fix-coverage-agent [THRESHOLD]
 **Comando**: `fix-coverage-agent 80`

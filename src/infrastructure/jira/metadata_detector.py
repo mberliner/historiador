@@ -165,6 +165,105 @@ class JiraMetadataDetector:
             logger.error("Error detectando campos obligatorios para %s: %s", feature_type, str(e))
             return {}, None
 
+    def detect_story_required_fields(self, story_type: str = "Story") -> Dict[str, Any]:
+        """Detecta campos obligatorios para historias de usuario.
+
+        Args:
+            story_type: Tipo de issue para historias de usuario
+
+        Returns:
+            Dict con campos obligatorios requeridos
+        """
+        logger.debug("Iniciando detección de campos obligatorios para tipo: %s", story_type)
+        try:
+            url = f"{self.base_url}/rest/api/3/issue/createmeta"
+            params = {
+                'projectKeys': self.project_key,
+                'issuetypeNames': story_type,
+                'expand': 'projects.issuetypes.fields'
+            }
+            logger.debug("Consultando API: %s con params: %s", url, params)
+            
+            response = self.session.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            logger.debug("Respuesta API recibida: %d proyectos encontrados", 
+                        len(data.get("projects", [])))
+
+            if not data.get("projects") or len(data["projects"]) == 0:
+                logger.warning("No se encontraron proyectos en createmeta para %s", story_type)
+                return {}
+
+            project = data["projects"][0]
+            logger.debug("Proyecto encontrado: %s (id: %s)", 
+                        project.get("name", "N/A"), project.get("id", "N/A"))
+            
+            if not project.get("issuetypes") or len(project["issuetypes"]) == 0:
+                logger.warning("No se encontró tipo de issue %s", story_type)
+                return {}
+
+            issuetype = project["issuetypes"][0]
+            logger.debug("Tipo de issue encontrado: %s (id: %s)", 
+                        issuetype.get("name", "N/A"), issuetype.get("id", "N/A"))
+            
+            fields = issuetype.get("fields", {})
+            logger.debug("Analizando %d campos disponibles para %s", len(fields), story_type)
+
+            required_fields = {}
+
+            for field_id, field_info in fields.items():
+                field_name = field_info.get("name", field_id)
+                is_required = field_info.get("required", False)
+                logger.debug("Campo %s (%s): obligatorio=%s", field_name, field_id, is_required)
+                
+                # Solo campos obligatorios, excluyendo los básicos que ya manejamos
+                if is_required:
+                    field_name_lower = field_name.lower()
+                    
+                    # Excluir campos básicos que ya se manejan
+                    if field_name_lower in ["summary", "description", "project", "issuetype"]:
+                        logger.debug("Excluyendo campo básico: %s", field_name)
+                        continue
+
+                    # Obtener valor por defecto si existe
+                    schema = field_info.get("schema", {})
+                    allowed_values = field_info.get("allowedValues")
+                    schema_type = schema.get("type", "string")
+                    
+                    logger.debug("Procesando campo obligatorio %s: schema_type=%s, allowed_values=%s", 
+                               field_name, schema_type, len(allowed_values) if allowed_values else 0)
+                    
+                    if allowed_values and len(allowed_values) > 0:
+                        # Campo con valores predefinidos - usar el primero como default
+                        default_value = allowed_values[0]
+                        logger.debug("Campo %s tiene %d valores permitidos, usando: %s", 
+                                   field_name, len(allowed_values), default_value)
+                        
+                        if "id" in default_value:
+                            required_fields[field_id] = {"id": default_value["id"]}
+                        elif "value" in default_value:
+                            required_fields[field_id] = {"value": default_value["value"]}
+                        else:
+                            required_fields[field_id] = default_value
+                    else:
+                        # Campo de texto libre - depende del schema type
+                        logger.debug("Campo %s es de texto libre, tipo: %s", field_name, schema_type)
+                        if schema_type == "string":
+                            required_fields[field_id] = "default_value"
+                        elif schema_type == "number":
+                            required_fields[field_id] = 0
+                        else:
+                            required_fields[field_id] = "default_value"
+
+            logger.debug("Detección completada para %s: %d campos obligatorios encontrados", 
+                       story_type, len(required_fields))
+            return required_fields
+        
+        except Exception as e:
+            logger.error("Error detectando campos obligatorios para historias %s: %s", story_type, str(e))
+            logger.debug("Excepción completa:", exc_info=True)
+            return {}
+
     def suggest_optimal_types(self) -> Dict[str, str]:
         """Sugiere tipos de issue óptimos basado en lo disponible en el proyecto.
 

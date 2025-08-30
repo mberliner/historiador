@@ -230,29 +230,55 @@ class OutputFormatter:
             self.print_error("Error de conexión")
 
     def print_diagnose_result(self, result: Dict[str, Any]) -> None:
-        """Imprime resultado de diagnóstico."""
+        """Imprime resultado de diagnóstico completo."""
         click.echo("="*60)
-        click.echo("DIAGNÓSTICO DE CONFIGURACIÓN PARA FEATURES")
+        click.echo("DIAGNÓSTICO COMPLETO DE CONFIGURACIÓN")
         click.echo("="*60)
 
         self.print_success("Conexión con Jira exitosa")
         self.print_success(f"Proyecto {result['project_key']} válido")
-        self.print_success(f"Tipo de feature '{result['feature_type']}' válido")
+        # Sección de historias de usuario
+        click.echo("\n" + "="*40)
+        click.echo("HISTORIAS DE USUARIO")
+        click.echo("="*40)
+        self.print_success(f"Tipo de historia '{result['story_type']}' válido")
 
-        if result['required_fields']:
-            click.echo("\nCAMPOS OBLIGATORIOS ENCONTRADOS:")
-            for field_id, field_value in result['required_fields'].items():
+        if result['story_required_fields']:
+            click.echo("\nCAMPOS OBLIGATORIOS PARA HISTORIAS:")
+            for field_id, field_value in result['story_required_fields'].items():
                 click.echo(f"   * {field_id}: {field_value}")
 
             click.echo("\nCONFIGURACIÓN SUGERIDA PARA .env:")
-            click.echo(f"FEATURE_REQUIRED_FIELDS='{result['config_suggestion']}'")
-
-            click.echo("\nNOTA: Revisa los logs para ver todos los valores disponibles")
+            click.echo(f"STORY_REQUIRED_FIELDS='{result['story_config_suggestion']}'")
         else:
-            self.print_success("No se encontraron campos obligatorios adicionales")
+            self.print_success("Sin campos obligatorios adicionales para historias")
 
-        click.echo("\nCONFIGURACIÓN ACTUAL:")
+        # Sección de features
+        click.echo("\n" + "="*40)
+        click.echo("FEATURES")
+        click.echo("="*40)
+        self.print_success(f"Tipo de feature '{result['feature_type']}' válido")
+
+        if result['feature_required_fields']:
+            click.echo("\nCAMPOS OBLIGATORIOS PARA FEATURES:")
+            for field_id, field_value in result['feature_required_fields'].items():
+                click.echo(f"   * {field_id}: {field_value}")
+
+            click.echo("\nCONFIGURACIÓN SUGERIDA PARA .env:")
+            click.echo(f"FEATURE_REQUIRED_FIELDS='{result['feature_config_suggestion']}'")
+        else:
+            self.print_success("Sin campos obligatorios adicionales para features")
+
+        # Configuración actual
+        click.echo("\n" + "="*40)
+        click.echo("CONFIGURACIÓN ACTUAL")
+        click.echo("="*40)
+        click.echo(f"   DEFAULT_ISSUE_TYPE: {result['current_config']['story_type']}")
+        click.echo(f"   STORY_REQUIRED_FIELDS: {result['current_config']['story_required_fields'] or 'No configurado'}")
         click.echo(f"   FEATURE_ISSUE_TYPE: {result['current_config']['feature_type']}")
-        click.echo(f"   FEATURE_REQUIRED_FIELDS: {result['current_config']['required_fields'] or 'No configurado'}")
+        click.echo(f"   FEATURE_REQUIRED_FIELDS: {result['current_config']['feature_required_fields'] or 'No configurado'}")
+        
+        if result['story_required_fields'] or result['feature_required_fields']:
+            click.echo("\nNOTA: Revisa los logs para ver todos los valores disponibles")
 
         click.echo("\nDiagnóstico completado")

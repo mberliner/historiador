@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     feature_required_fields: Optional[str] = Field(
         default=None,
         description="Campos obligatorios adicionales para features en formato JSON")
+    story_required_fields: Optional[str] = Field(
+        default=None,
+        description="Campos obligatorios adicionales para historias de usuario en formato JSON")
 
     class Config:
         """Configuración de pydantic."""

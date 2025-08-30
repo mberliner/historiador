@@ -70,6 +70,57 @@ class JiraClient:
             logger.error("Error validando tipo de subtarea: %s", str(e))
             return False
 
+    def validate_issue_type(self, issue_type: str) -> bool:
+        """Valida que un tipo de issue existe en el proyecto usando todos los tipos disponibles."""
+        logger.debug("Validando tipo de issue: %s en proyecto %s", issue_type, self.settings.project_key)
+        try:
+            # Obtener todos los tipos de issue disponibles en lugar de filtrar por nombre
+            url = f"{self.base_url}/rest/api/3/issue/createmeta"
+            params = {
+                'projectKeys': self.settings.project_key,
+                'expand': 'projects.issuetypes'
+            }
+            logger.debug("Consultando todos los tipos disponibles: %s con params: %s", url, params)
+            
+            response = self.session.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            projects_count = len(data.get("projects", []))
+            logger.debug("Respuesta validación: %d proyectos encontrados", projects_count)
+            
+            # Verificar si se encontró el proyecto
+            if not data.get("projects") or len(data["projects"]) == 0:
+                logger.debug("Validación fallida: no se encontraron proyectos")
+                return False
+            
+            project = data["projects"][0]
+            all_issuetypes = project.get("issuetypes", [])
+            logger.debug("Proyecto encontrado: %s, tipos de issue disponibles: %d", 
+                        project.get("name", "N/A"), len(all_issuetypes))
+            
+            # Buscar el tipo de issue por nombre (insensible a mayúsculas)
+            issue_type_lower = issue_type.lower()
+            for issuetype in all_issuetypes:
+                available_name = issuetype.get("name", "")
+                logger.debug("Comparando '%s' con '%s'", issue_type, available_name)
+                
+                if available_name.lower() == issue_type_lower:
+                    logger.debug("Tipo de issue validado exitosamente: %s (id: %s)", 
+                               available_name, issuetype.get("id"))
+                    return True
+            
+            # Si no se encuentra, mostrar tipos disponibles
+            available_names = [it.get("name", "") for it in all_issuetypes if not it.get("subtask", False)]
+            logger.debug("Validación fallida: tipo de issue '%s' no encontrado. Tipos estándar disponibles: %s", 
+                       issue_type, available_names)
+            return False
+            
+        except Exception as e:
+            logger.error("Error validando tipo de issue %s: %s", issue_type, str(e))
+            logger.debug("Excepción completa al validar tipo de issue:", exc_info=True)
+            return False
+
     def validate_feature_issue_type(self) -> bool:
         """Valida que el tipo de issue para features existe en el proyecto."""
         return self.feature_manager.validate_feature_type()
@@ -202,6 +253,15 @@ class JiraClient:
                         "version": 1,
                         "content": content_paragraphs
                     }
+
+            # Agregar campos obligatorios adicionales para historias si están configurados
+            if self.settings.story_required_fields:
+                try:
+                    additional_fields = json.loads(self.settings.story_required_fields)
+                    issue_data["fields"].update(additional_fields)
+                    logger.debug("Campos obligatorios agregados para historia: %s", additional_fields)
+                except json.JSONDecodeError as e:
+                    logger.warning("Error parseando story_required_fields: %s", str(e))
 
             # Vincular con parent si existe
             if parent_key:

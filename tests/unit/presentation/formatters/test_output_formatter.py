@@ -585,15 +585,22 @@ class TestSpecializedPrintMethods:
         
         result = {
             "project_key": "TEST",
+            "story_type": "Story",
             "feature_type": "Feature",
-            "required_fields": {
+            "story_required_fields": {
+                "customfield_10003": {"value": "Medium"}
+            },
+            "story_config_suggestion": '{"customfield_10003": {"value": "Medium"}}',
+            "feature_required_fields": {
                 "customfield_10001": {"id": "1"},
                 "customfield_10002": {"value": "High"}
             },
-            "config_suggestion": '{"customfield_10001": {"id": "1"}, "customfield_10002": {"value": "High"}}',
+            "feature_config_suggestion": '{"customfield_10001": {"id": "1"}, "customfield_10002": {"value": "High"}}',
             "current_config": {
+                "story_type": "Story",
+                "story_required_fields": None,
                 "feature_type": "Feature",
-                "required_fields": None
+                "feature_required_fields": None
             }
         }
         
@@ -605,15 +612,16 @@ class TestSpecializedPrintMethods:
                 echo_calls = [call[0][0] for call in mock_echo.call_args_list]
                 
                 # Check headers and sections
-                assert any("DIAGNÓSTICO DE CONFIGURACIÓN" in call for call in echo_calls)
-                assert any("CAMPOS OBLIGATORIOS ENCONTRADOS" in call for call in echo_calls)
-                assert any("CONFIGURACIÓN SUGERIDA" in call for call in echo_calls)
+                assert any("DIAGNÓSTICO COMPLETO DE CONFIGURACIÓN" in call for call in echo_calls)
+                assert any("CAMPOS OBLIGATORIOS PARA" in call for call in echo_calls)
+                assert any("CONFIGURACIÓN SUGERIDA PARA .env" in call for call in echo_calls)
                 assert any("CONFIGURACIÓN ACTUAL" in call for call in echo_calls)
                 
-                # Check success messages
+                # Check success messages (now includes both story and feature types)
                 expected_success_calls = [
                     "Conexión con Jira exitosa",
                     "Proyecto TEST válido",
+                    "Tipo de historia 'Story' válido",
                     "Tipo de feature 'Feature' válido"
                 ]
                 assert mock_success.call_count == len(expected_success_calls)
@@ -624,12 +632,17 @@ class TestSpecializedPrintMethods:
         
         result = {
             "project_key": "TEST",
-            "feature_type": "Feature", 
-            "required_fields": {},
-            "config_suggestion": "",
+            "story_type": "Story",
+            "feature_type": "Feature",
+            "story_required_fields": {},
+            "story_config_suggestion": "",
+            "feature_required_fields": {},
+            "feature_config_suggestion": "",
             "current_config": {
+                "story_type": "Story",
+                "story_required_fields": '{"story_custom": "value"}',
                 "feature_type": "Feature",
-                "required_fields": '{"custom": "value"}'
+                "feature_required_fields": '{"feature_custom": "value"}'
             }
         }
         
@@ -639,4 +652,4 @@ class TestSpecializedPrintMethods:
                 
                 # Check success messages including the "no required fields" message
                 success_calls = [call[0][0] for call in mock_success.call_args_list]
-                assert "No se encontraron campos obligatorios adicionales" in success_calls
+                assert any("Sin campos obligatorios adicionales" in call for call in success_calls)
