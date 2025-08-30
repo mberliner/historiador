@@ -10,6 +10,7 @@
 - **Valida archivos** antes del procesamiento 
 - **Modo dry-run** para pruebas sin modificar Jira
 - **Configuración interactiva** la primera vez que lo usas
+- **🔄 Manejo inteligente de alias** - Auto-detecta Story ↔ Historia, Bug ↔ Error, etc.
 
 ## 📥 Descarga
 
@@ -95,6 +96,19 @@ PROJECT_KEY=PROJ
 ```
 
 **Obtener API Token:** [Atlassian API Tokens](https://id.atlassian.com/manage-profile/security/api-tokens)
+
+### 🔄 Tipos de Issue con Alias Inteligente
+
+El sistema detecta automáticamente diferentes nombres para el mismo tipo de issue:
+
+| **Configuración** | **Jira Real** | **Resultado** |
+|-------------------|---------------|---------------|
+| `Story` | `Historia` | ✅ Auto-detecta y funciona |
+| `Bug` | `Error` | ✅ Auto-detecta y funciona |  
+| `Task` | `Tarea` | ✅ Auto-detecta y funciona |
+| `Subtask` | `Subtarea` | ✅ Auto-detecta y funciona |
+
+**¿Tu proyecto usa nombres diferentes?** ¡No problema! El sistema se adapta automáticamente.
 
 ## 📁 Directorios
 

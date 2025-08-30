@@ -7,19 +7,21 @@ import requests
 from src.infrastructure.jira.metadata_detector import JiraMetadataDetector
 
 
+@pytest.fixture
+def mock_session():
+    """Sesión mock para pruebas."""
+    session = Mock(spec=requests.Session)
+    return session
+
+
+@pytest.fixture
+def detector(mock_session):
+    """Instancia del detector para pruebas."""
+    return JiraMetadataDetector(mock_session, "https://test.atlassian.net", "TEST")
+
+
 class TestJiraMetadataDetector:
     """Tests para JiraMetadataDetector."""
-
-    @pytest.fixture
-    def mock_session(self):
-        """Sesión mock para pruebas."""
-        session = Mock(spec=requests.Session)
-        return session
-
-    @pytest.fixture
-    def detector(self, mock_session):
-        """Instancia del detector para pruebas."""
-        return JiraMetadataDetector(mock_session, "https://test.atlassian.net", "TEST")
 
     def test_get_available_issue_types_success(self, detector, mock_session):
         """Test obtención exitosa de tipos de issue."""
@@ -332,3 +334,122 @@ class TestJiraMetadataDetector:
 
         # Assert
         assert result is None
+
+
+class TestFindIssueTypeId:
+    """Tests para el método _find_issue_type_id"""
+
+    def test_find_issue_type_id_exact_match(self, detector, mock_session):
+        """Test encontrar tipo de issue con nombre exacto."""
+        # Arrange
+        mock_response = Mock()
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = {
+            "projects": [{
+                "issuetypes": [
+                    {"id": "1", "name": "Story"},
+                    {"id": "2", "name": "Bug"}
+                ]
+            }]
+        }
+        mock_session.get.return_value = mock_response
+
+        # Act
+        result = detector._find_issue_type_id("Story")
+
+        # Assert
+        assert result == "1"
+
+    def test_find_issue_type_id_case_insensitive(self, detector, mock_session):
+        """Test encontrar tipo de issue insensible a mayúsculas."""
+        # Arrange
+        mock_response = Mock()
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = {
+            "projects": [{
+                "issuetypes": [
+                    {"id": "1", "name": "Historia"},
+                    {"id": "2", "name": "Bug"}
+                ]
+            }]
+        }
+        mock_session.get.return_value = mock_response
+
+        # Act - Buscar "story" debe encontrar "Historia"
+        result = detector._find_issue_type_id("historia")
+
+        # Assert
+        assert result == "1"
+
+    def test_find_issue_type_id_not_found(self, detector, mock_session):
+        """Test cuando no se encuentra el tipo de issue."""
+        # Arrange
+        mock_response = Mock()
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = {
+            "projects": [{
+                "issuetypes": [
+                    {"id": "1", "name": "Bug"},
+                    {"id": "2", "name": "Task"}
+                ]
+            }]
+        }
+        mock_session.get.return_value = mock_response
+
+        # Act
+        result = detector._find_issue_type_id("Story")
+
+        # Assert
+        assert result is None
+
+    def test_find_issue_type_id_no_projects(self, detector, mock_session):
+        """Test cuando no hay proyectos en la respuesta."""
+        # Arrange
+        mock_response = Mock()
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = {"projects": []}
+        mock_session.get.return_value = mock_response
+
+        # Act
+        result = detector._find_issue_type_id("Story")
+
+        # Assert
+        assert result is None
+
+    def test_find_issue_type_id_network_error(self, detector, mock_session):
+        """Test manejo de errores de red."""
+        # Arrange
+        mock_session.get.side_effect = requests.RequestException("Network error")
+
+        # Act
+        result = detector._find_issue_type_id("Story")
+
+        # Assert
+        assert result is None
+
+
+class TestDetectStoryRequiredFieldsWithAlias:
+    """Tests para detect_story_required_fields con manejo de alias"""
+
+    def test_detect_story_required_fields_alias_not_found(self, detector, mock_session):
+        """Test cuando el alias no se encuentra en el proyecto."""
+        # Arrange - Primera llamada no encuentra el tipo
+        find_response = Mock()
+        find_response.raise_for_status = Mock()
+        find_response.json.return_value = {
+            "projects": [{
+                "issuetypes": [
+                    {"id": "11", "name": "Bug"},
+                    {"id": "12", "name": "Task"}
+                ]
+            }]
+        }
+        mock_session.get.return_value = find_response
+
+        # Act
+        result = detector.detect_story_required_fields("Story")
+
+        # Assert
+        assert result == {}
+        # Solo debe hacer una llamada (_find_issue_type_id)
+        assert mock_session.get.call_count == 1

@@ -87,6 +87,8 @@ El proyecto implementa **Clean Architecture** con separación en 4 capas:
 - ✅ Normalización de descripciones para comparación consistente
 - ✅ Refactorización Fase 1: Arquitectura limpia (Score PyLint: 7.92 → 8.64)
 - ✅ Configuración interactiva: Si no existe `.env`, solicita valores al usuario paso a paso
+- ✅ **Manejo inteligente de alias de tipos de issue**: Auto-corrección Story ↔ Historia
+- ✅ **Validación consistente**: `diagnose` y `process` usan misma lógica de alias
 
 ## Validaciones Implementadas
 - Existencia del tipo "Subtarea" en el proyecto Jira
@@ -154,6 +156,46 @@ Probando conexión con Jira...
 - **Error 403 al eliminar issues**: Común en entornos corporativos, rollback se desactiva automáticamente
 - **Tipos de subtarea varían**: Verificar nombres exactos con el comando `validate`
 - **Error 400 "Campo X es obligatorio" al crear features**: Usar comando `diagnose` para detectar campos obligatorios automáticamente
+- **❌ SOLUCIONADO: "Story" no válido en diagnose**: Sistema detecta automáticamente alias (Story ↔ Historia)
+
+## Manejo Inteligente de Alias de Tipos de Issue
+
+### Funcionalidad Implementada
+El sistema ahora maneja automáticamente alias comunes entre nombres de tipos de issue en diferentes idiomas:
+
+#### Mapeo de Alias Soportado
+```python
+'story' ↔ ['historia', 'historia de usuario', 'user story']
+'bug' ↔ ['error', 'defecto', 'incident'] 
+'task' ↔ ['tarea', 'trabajo']
+'subtask' ↔ ['subtarea', 'sub-task']
+'epic' ↔ ['epopeya']
+'feature' ↔ ['funcionalidad', 'característica']
+```
+
+#### Comportamiento Automático
+- **Auto-detección**: Si especificas `DEFAULT_ISSUE_TYPE=Story` pero Jira usa "Historia"
+- **Auto-corrección**: El sistema actualiza la configuración automáticamente  
+- **Logs informativos**: Muestra qué alias se encontró y aplicó
+- **Experiencia consistente**: Tanto `diagnose` como `process` usan la misma lógica
+
+#### Ejemplo de Funcionamiento
+```bash
+# Configuración inicial
+DEFAULT_ISSUE_TYPE=Story
+
+# Al ejecutar diagnose
+./historiador diagnose -p AGCF
+# ✅ Detecta automáticamente que "Story" → "Historia" 
+# ✅ Actualiza configuración interna
+# ✅ Funciona sin errores para el usuario
+```
+
+#### Logs de Auto-corrección
+```
+INFO:src.infrastructure.jira.jira_client:✅ Tipo de issue encontrado por alias: 'Story' -> 'Historia' (id: 10004)
+INFO:src.infrastructure.jira.jira_client:🔄 Actualizando configuración: Story -> Historia
+```
 
 ## Calidad de Código - PyLint
 Se aplican las siguientes consideraciones para mantener alta calidad:

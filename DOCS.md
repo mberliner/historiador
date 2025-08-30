@@ -8,6 +8,7 @@
 - [Gestión de Features](#gestión-de-features)
 - [Testing y Coverage](#testing-y-coverage)
 - [CI/CD Pipelines](#cicd-pipelines)
+- [Manejo Inteligente de Alias](#manejo-inteligente-de-alias)
 - [Validación y Manejo de Errores](#validación-y-manejo-de-errores)
 - [Ejemplos Completos](#ejemplos-completos)
 - [Troubleshooting](#troubleshooting)
@@ -347,6 +348,100 @@ FEATURE_REQUIRED_FIELDS={"customfield_10020": {"id": "1"}, "customfield_10021": 
 ```
 
 **Detección automática**: El comando `diagnose` detecta campos obligatorios automáticamente.
+
+## Manejo Inteligente de Alias
+
+### 🔄 Nueva Funcionalidad de Auto-corrección
+
+El sistema ahora detecta automáticamente diferentes nombres para tipos de issue en idiomas diferentes, eliminando errores de configuración comunes.
+
+#### **Problema Solucionado**
+```bash
+# ANTES: Error confuso para el usuario
+python src/main.py diagnose -p AGCF
+# ❌ Error: Tipo de historia 'Story' no válido en el proyecto 'AGCF'
+
+# DESPUÉS: Auto-corrección automática  
+python src/main.py diagnose -p AGCF
+# ✅ [OK] Tipo de historia 'Historia' válido (auto-detectado desde 'Story')
+```
+
+#### **Mapeo de Alias Inteligente**
+
+El sistema incluye mapeo completo para tipos comunes:
+
+```python
+# Mapeo automático implementado
+ALIAS_MAPPING = {
+    'story': ['historia', 'historia de usuario', 'user story'],
+    'historia': ['story', 'user story'],
+    'bug': ['error', 'defecto', 'incident'],
+    'error': ['bug', 'incident', 'defecto'],
+    'task': ['tarea', 'trabajo'],
+    'tarea': ['task', 'trabajo'],
+    'subtask': ['subtarea', 'sub-task'],
+    'subtarea': ['subtask', 'sub-task'],
+    'epic': ['epopeya'],
+    'feature': ['funcionalidad', 'característica']
+}
+```
+
+#### **Comportamiento Automático**
+
+1. **Detección**: Sistema busca primero nombre exacto
+2. **Fallback a Alias**: Si no encuentra, busca en mapeo de alias
+3. **Auto-corrección**: Actualiza configuración interna automáticamente
+4. **Logging Informativo**: Informa al usuario del cambio detectado
+5. **Consistencia**: Aplica a todos los comandos (`diagnose`, `process`, `validate`)
+
+#### **Logs de Auto-corrección**
+
+```bash
+INFO:src.infrastructure.jira.jira_client:✅ Tipo de issue encontrado por alias: 'Story' -> 'Historia' (id: 10004)
+INFO:src.infrastructure.jira.jira_client:🔄 Actualizando configuración: Story -> Historia
+```
+
+#### **Escenarios Soportados**
+
+| **Tu Configuración** | **Jira Real** | **Resultado** | **Acción** |
+|---------------------|---------------|---------------|------------|
+| `DEFAULT_ISSUE_TYPE=Story` | `Historia` | ✅ **Funciona** | Auto-corrección automática |
+| `DEFAULT_ISSUE_TYPE=Bug` | `Error` | ✅ **Funciona** | Auto-corrección automática |
+| `DEFAULT_ISSUE_TYPE=Task` | `Tarea` | ✅ **Funciona** | Auto-corrección automática |
+| `SUBTASK_ISSUE_TYPE=Subtask` | `Subtarea` | ✅ **Funciona** | Auto-corrección automática |
+| `DEFAULT_ISSUE_TYPE=MyCustomType` | `MyCustomType` | ✅ **Funciona** | Coincidencia exacta |
+| `DEFAULT_ISSUE_TYPE=InvalidType` | `N/A` | ❌ **Error claro** | Lista tipos disponibles |
+
+#### **Ventajas para el Usuario**
+
+- 🎯 **Eliminación de errores confusos**: No más "Story no válido" cuando Jira usa "Historia"
+- 🔄 **Auto-corrección transparente**: Sistema se adapta sin intervención del usuario  
+- 🌍 **Soporte multiidioma**: Funciona con configuraciones en inglés/español
+- 📝 **Experiencia consistente**: Mismo comportamiento en `diagnose` y `process`
+- 🚀 **Configuración robusta**: Menos fricción en setup inicial
+
+#### **Uso Transparente**
+
+```bash
+# El usuario usa su configuración preferida
+DEFAULT_ISSUE_TYPE=Story
+SUBTASK_ISSUE_TYPE=Subtask
+
+# El sistema se adapta automáticamente al proyecto Jira
+./historiador diagnose -p PROYECTO
+# ✅ Detecta Story → Historia automáticamente
+# ✅ Detecta Subtask → Subtarea automáticamente  
+# ✅ Continúa procesamiento sin errores
+```
+
+#### **Casos Edge Manejados**
+
+- **Múltiples alias**: Prioriza el primer match encontrado
+- **Case-insensitive**: `STORY` = `story` = `Story`
+- **Configuraciones mixtas**: Algunos exactos, otros con alias
+- **Fallback a error**: Si no encuentra ni exacto ni alias, error claro con tipos disponibles
+
+Esta funcionalidad **elimina completamente** la confusión anterior donde `diagnose` fallaba con alias pero `process` funcionaba, proporcionando una experiencia de usuario consistente y robusta.
 
 ## Testing y Coverage
 

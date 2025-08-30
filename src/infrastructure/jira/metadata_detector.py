@@ -175,11 +175,22 @@ class JiraMetadataDetector:
             Dict con campos obligatorios requeridos
         """
         logger.debug("Iniciando detección de campos obligatorios para tipo: %s", story_type)
+        
+        # Primero intentar encontrar el ID real del tipo de issue usando la misma lógica
+        # que validate_issue_type para manejar alias como Story/Historia
+        issue_type_id = self._find_issue_type_id(story_type)
+        if not issue_type_id:
+            logger.warning("No se encontró el tipo de issue '%s' en el proyecto %s", 
+                         story_type, self.project_key)
+            return {}
+        
+        logger.debug("ID del tipo de issue encontrado: %s para tipo '%s'", issue_type_id, story_type)
+        
         try:
             url = f"{self.base_url}/rest/api/3/issue/createmeta"
             params = {
                 'projectKeys': self.project_key,
-                'issuetypeNames': story_type,
+                'issuetypeIds': issue_type_id,  # Usar ID en lugar de nombre
                 'expand': 'projects.issuetypes.fields'
             }
             logger.debug("Consultando API: %s con params: %s", url, params)
@@ -263,6 +274,63 @@ class JiraMetadataDetector:
             logger.error("Error detectando campos obligatorios para historias %s: %s", story_type, str(e))
             logger.debug("Excepción completa:", exc_info=True)
             return {}
+
+    def _find_issue_type_id(self, issue_type_name: str) -> Optional[str]:
+        """Encuentra el ID de un tipo de issue por nombre, manejando alias.
+        
+        Usa la misma lógica que validate_issue_type en jira_client.py para manejar
+        casos donde el usuario especifica "Story" pero Jira tiene "Historia".
+        
+        Args:
+            issue_type_name: Nombre del tipo de issue a buscar
+            
+        Returns:
+            ID del tipo de issue o None si no se encuentra
+        """
+        logger.debug("Buscando ID para tipo de issue: %s", issue_type_name)
+        try:
+            url = f"{self.base_url}/rest/api/3/issue/createmeta"
+            params = {
+                'projectKeys': self.project_key,
+                'expand': 'projects.issuetypes'
+            }
+            logger.debug("Consultando todos los tipos disponibles: %s", url)
+            
+            response = self.session.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            if not data.get("projects") or len(data["projects"]) == 0:
+                logger.debug("No se encontraron proyectos")
+                return None
+            
+            project = data["projects"][0]
+            all_issuetypes = project.get("issuetypes", [])
+            logger.debug("Proyecto encontrado con %d tipos de issue", len(all_issuetypes))
+            
+            # Buscar el tipo de issue por nombre (insensible a mayúsculas)
+            issue_type_lower = issue_type_name.lower()
+            for issuetype in all_issuetypes:
+                available_name = issuetype.get("name", "")
+                issue_type_id = issuetype.get("id", "")
+                logger.debug("Comparando '%s' con '%s' (id: %s)", 
+                           issue_type_name, available_name, issue_type_id)
+                
+                if available_name.lower() == issue_type_lower:
+                    logger.debug("Tipo de issue encontrado: %s -> id: %s", 
+                               available_name, issue_type_id)
+                    return issue_type_id
+            
+            # Si no se encuentra, mostrar tipos disponibles no-subtarea
+            available_names = [it.get("name", "") for it in all_issuetypes 
+                              if not it.get("subtask", False)]
+            logger.warning("Tipo de issue '%s' no encontrado. Tipos estándar disponibles: %s", 
+                          issue_type_name, available_names)
+            return None
+            
+        except Exception as e:
+            logger.error("Error buscando ID de tipo de issue %s: %s", issue_type_name, str(e))
+            return None
 
     def suggest_optimal_types(self) -> Dict[str, str]:
         """Sugiere tipos de issue óptimos basado en lo disponible en el proyecto.

@@ -99,16 +99,49 @@ class JiraClient:
             logger.debug("Proyecto encontrado: %s, tipos de issue disponibles: %d", 
                         project.get("name", "N/A"), len(all_issuetypes))
             
-            # Buscar el tipo de issue por nombre (insensible a mayúsculas)
+            # Buscar el tipo de issue por nombre (insensible a mayúsculas) y con alias
             issue_type_lower = issue_type.lower()
+            
+            # Mapeo de alias comunes para mejorar experiencia de usuario
+            alias_mapping = {
+                'story': ['historia', 'historia de usuario', 'user story'],
+                'historia': ['story', 'user story'],
+                'bug': ['error', 'defecto', 'incident'],
+                'error': ['bug', 'incident', 'defecto'],
+                'task': ['tarea', 'trabajo'],
+                'tarea': ['task', 'trabajo'],
+                'subtask': ['subtarea', 'sub-task'],
+                'subtarea': ['subtask', 'sub-task'],
+                'epic': ['epopeya'],
+                'feature': ['funcionalidad', 'característica']
+            }
+            
+            # Primera pasada: buscar coincidencia exacta
             for issuetype in all_issuetypes:
                 available_name = issuetype.get("name", "")
                 logger.debug("Comparando '%s' con '%s'", issue_type, available_name)
                 
                 if available_name.lower() == issue_type_lower:
-                    logger.debug("Tipo de issue validado exitosamente: %s (id: %s)", 
+                    logger.debug("Tipo de issue validado exitosamente (exacto): %s (id: %s)", 
                                available_name, issuetype.get("id"))
                     return True
+            
+            # Segunda pasada: buscar por alias
+            possible_aliases = alias_mapping.get(issue_type_lower, [])
+            if possible_aliases:
+                logger.debug("Buscando alias para '%s': %s", issue_type, possible_aliases)
+                for issuetype in all_issuetypes:
+                    available_name = issuetype.get("name", "")
+                    available_lower = available_name.lower()
+                    
+                    if available_lower in possible_aliases:
+                        logger.info("✅ Tipo de issue encontrado por alias: '%s' -> '%s' (id: %s)", 
+                                   issue_type, available_name, issuetype.get("id"))
+                        # Actualizar settings para usar el nombre correcto encontrado
+                        if hasattr(self.settings, 'default_issue_type') and self.settings.default_issue_type == issue_type:
+                            logger.info("🔄 Actualizando configuración: %s -> %s", issue_type, available_name)
+                            self.settings.default_issue_type = available_name
+                        return True
             
             # Si no se encuentra, mostrar tipos disponibles
             available_names = [it.get("name", "") for it in all_issuetypes if not it.get("subtask", False)]
