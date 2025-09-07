@@ -2,6 +2,9 @@
   "permissions": {
     "allow": [
       "Update(tests\\unit\\*)",
+      "Edit(tests\\unit\\*)",
+      "MultiEdit(tests\\unit\\*)",
+      "Write(tests\\unit\\*)",
       
       "Bash(python -m pylint:*)",
       "Bash(python -m pytest:*)",
@@ -10,7 +13,6 @@
       "Bash(python -m mypy:*)",
       "Bash(python -m flake8:*)",
       "Bash(python -m pyinstaller:*)",
-      "Bash(python -m PyInstaller:*)",
       "Bash(python -m bandit:*)",
       "Bash(pip install:*)",
       "Bash(safety:*)",
@@ -34,7 +36,6 @@
       "Python -m mypy:*",
       "Python -m flake8:*",
       "Python -m pyinstaller:*",
-      "Python -m PyInstaller:*",
       "Python -m bandit:*",
       "Safety:*",
       "Pip-audit:*", 
@@ -50,7 +51,12 @@
       "Coverage:*",
       "Python -m coverage:*",
       "Pyinstaller:*",
-      "Pip install:*"
+      "Pip install:*",
+      
+      "Edit(tests/unit/*)",
+      "MultiEdit(tests/unit/*)",
+      "Write(tests/unit/*)",
+      "Update(tests/unit/*)"
     ],
     "deny": [],
     "ask": []
