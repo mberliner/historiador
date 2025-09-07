@@ -28,6 +28,15 @@
       "Bash(du:*)",
       "Bash(coverage:*)",
       "Bash(python -m coverage:*)",
+      "Bash(mkdir:*)",
+      "Bash(cd:*)",
+      "Bash(pwd:*)",
+      "Bash(chmod:*)",
+      "Bash(git:*)",
+      "Bash(cat:*)",
+      "Bash(grep:*)",
+      "Bash(echo:*)",
+      "Bash(touch:*)",
       
       "Python -m pylint:*",
       "Python -m pytest:*", 
@@ -52,11 +61,24 @@
       "Python -m coverage:*",
       "Pyinstaller:*",
       "Pip install:*",
+      "Mkdir:*",
+      "Cd:*",
+      "Pwd:*",
+      "Chmod:*",
+      "Git:*",
+      "Cat:*",
+      "Grep:*",
+      "Echo:*",
+      "Touch:*",
       
       "Edit(tests/unit/*)",
       "MultiEdit(tests/unit/*)",
       "Write(tests/unit/*)",
-      "Update(tests/unit/*)"
+      "Update(tests/unit/*)",
+      
+      "Write(security-reports/*)",
+      "Edit(security-reports/*)",
+      "MultiEdit(security-reports/*)"
     ],
     "deny": [],
     "ask": []

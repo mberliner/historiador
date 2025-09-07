@@ -81,3 +81,12 @@ entrada
 
 # Distribution
 dist/
+
+# Security Reports - Version only documentation, not raw scans
+security-reports/*.json
+security-reports/*scan*.txt
+security-reports/bandit-*
+security-reports/dependency-*
+# Keep these for team reference:
+!security-reports/comprehensive-security-analysis.md
+!security-reports/security-checklist.txt
