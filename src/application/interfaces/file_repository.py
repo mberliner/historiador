@@ -1,6 +1,8 @@
 """Interfaz para repositorio de archivos."""
+
 from abc import ABC, abstractmethod
 from typing import Iterator, List
+
 import pandas as pd
 
 from src.domain.entities.user_story import UserStory

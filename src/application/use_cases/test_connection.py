@@ -1,8 +1,9 @@
 """Caso de uso para probar conexión con Jira."""
-from typing import Dict, Any
 
-from src.infrastructure.settings import Settings
+from typing import Any, Dict
+
 from src.infrastructure.jira.jira_client import JiraClient
+from src.infrastructure.settings import Settings
 
 
 class TestConnectionUseCase:
@@ -20,7 +21,7 @@ class TestConnectionUseCase:
             project_valid = jira_client.validate_project(settings.project_key)
 
         return {
-            'connection_success': connection_success,
-            'project_valid': project_valid,
-            'project_key': settings.project_key
+            "connection_success": connection_success,
+            "project_valid": project_valid,
+            "project_key": settings.project_key,
         }

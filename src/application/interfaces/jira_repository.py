@@ -1,9 +1,10 @@
 """Interfaz para repositorio de Jira."""
-from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional
 
-from src.domain.entities.user_story import UserStory
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional
+
 from src.domain.entities.process_result import ProcessResult
+from src.domain.entities.user_story import UserStory
 
 
 class JiraRepository(ABC):
@@ -35,7 +36,9 @@ class JiraRepository(ABC):
         pass
 
     @abstractmethod
-    def create_user_story(self, story: UserStory, row_number: int = None) -> ProcessResult:
+    def create_user_story(
+        self, story: UserStory, row_number: int = None
+    ) -> ProcessResult:
         """Crea una historia de usuario."""
         pass
 

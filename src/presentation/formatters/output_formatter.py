@@ -1,5 +1,6 @@
 """Formateador de salida para la CLI."""
-from typing import List, Dict, Any
+
+from typing import Any, Dict, List
 
 import click
 
@@ -26,7 +27,9 @@ class OutputFormatter:
         """Imprime mensaje informativo."""
         click.echo(message)
 
-    def print_file_header(self, file_index: int, total_files: int, file_name: str) -> None:
+    def print_file_header(
+        self, file_index: int, total_files: int, file_name: str
+    ) -> None:
         """Imprime cabecera de procesamiento de archivo."""
         click.echo(f"\n{'='*70}")
         click.echo(f"PROCESANDO ARCHIVO [{file_index}/{total_files}]: {file_name}")
@@ -44,7 +47,9 @@ class OutputFormatter:
                 if result.feature_info.was_created:
                     click.echo(f"  Feature CREADA: {result.feature_info.feature_key}")
                 else:
-                    click.echo(f"  Feature UTILIZADA: {result.feature_info.feature_key}")
+                    click.echo(
+                        f"  Feature UTILIZADA: {result.feature_info.feature_key}"
+                    )
 
             # Información de subtareas
             if result.subtasks_created > 0:
@@ -90,7 +95,9 @@ class OutputFormatter:
 
         # Estado general
         if batch_result.total_processed > 0:
-            success_rate = (batch_result.successful / batch_result.total_processed) * 100
+            success_rate = (
+                batch_result.successful / batch_result.total_processed
+            ) * 100
             click.echo(f"\nEstado: {success_rate:.0f}% exitoso")
 
         click.echo("")  # Línea en blanco
@@ -107,11 +114,15 @@ class OutputFormatter:
         """Imprime errores de subtareas."""
         for result in results:
             if result.success and result.subtask_errors:
-                click.echo(f"Errores de subtareas en fila {result.row_number} ({result.jira_key}):")
+                click.echo(
+                    f"Errores de subtareas en fila {result.row_number} ({result.jira_key}):"
+                )
                 for error in result.subtask_errors:
                     click.echo(f"  • {error}")
 
-    def print_general_summary(self, total_files: int, overall_result: BatchResult) -> None:
+    def print_general_summary(
+        self, total_files: int, overall_result: BatchResult
+    ) -> None:
         """Imprime resumen general de todos los archivos."""
         click.echo(f"{'='*70}")
         click.echo("RESUMEN FINAL DE PROCESAMIENTO")
@@ -145,7 +156,9 @@ class OutputFormatter:
 
         # Estado final
         if overall_result.total_processed > 0:
-            success_rate = (overall_result.successful / overall_result.total_processed) * 100
+            success_rate = (
+                overall_result.successful / overall_result.total_processed
+            ) * 100
             click.echo(f"\nTasa de exito: {success_rate:.0f}%")
 
             if success_rate == 100:
@@ -153,30 +166,36 @@ class OutputFormatter:
             elif success_rate >= 80:
                 click.echo("RESULTADO: Procesamiento completado con exito parcial")
             else:
-                click.echo("RESULTADO: Procesamiento completado con errores significativos")
+                click.echo(
+                    "RESULTADO: Procesamiento completado con errores significativos"
+                )
 
         click.echo(f"{'='*70}")
 
     def print_results(self, results: Dict[str, Any]) -> None:
         """Imprime resultados completos del procesamiento."""
-        total_files = results['total_files']
-        file_results = results['file_results']
-        overall_result = results['overall_result']
+        total_files = results["total_files"]
+        file_results = results["file_results"]
+        overall_result = results["overall_result"]
 
         # Procesar cada archivo
         for file_data in file_results:
-            if 'error' in file_data:
+            if "error" in file_data:
                 # Error procesando archivo
-                self.print_file_header(file_data['file_index'], total_files, file_data['file_name'])
+                self.print_file_header(
+                    file_data["file_index"], total_files, file_data["file_name"]
+                )
                 self.print_error(f"Error procesando archivo: {file_data['error']}")
                 continue
 
             # Mostrar header del archivo
-            self.print_file_header(file_data['file_index'], total_files, file_data['file_name'])
+            self.print_file_header(
+                file_data["file_index"], total_files, file_data["file_name"]
+            )
 
             # Mostrar resultados individuales
-            batch_result = file_data['batch_result']
-            if hasattr(batch_result, 'stories') and batch_result.stories:
+            batch_result = file_data["batch_result"]
+            if hasattr(batch_result, "stories") and batch_result.stories:
                 for result, story in zip(batch_result.results, batch_result.stories):
                     self.print_story_result(result, story.titulo)
             else:
@@ -185,22 +204,21 @@ class OutputFormatter:
                     self.print_story_result(result, "Historia sin título")
 
             # Mostrar resumen del archivo
-            self.print_batch_summary(file_data['file_name'], batch_result)
+            self.print_batch_summary(file_data["file_name"], batch_result)
 
         # Mostrar resumen general si hay resultados
         if overall_result:
             self.print_general_summary(total_files, overall_result)
 
-
     def print_validation_result(self, result: Dict[str, Any]) -> None:
         """Imprime resultado de validación de archivo."""
         click.echo(f"Preview de {result['file']} (primeras {result['rows']} filas):")
-        click.echo("="*60)
-        click.echo(result['preview'])
+        click.echo("=" * 60)
+        click.echo(result["preview"])
 
-        click.echo("\n" + "="*60)
+        click.echo("\n" + "=" * 60)
         click.echo("VALIDACIÓN DE ESTRUCTURA")
-        click.echo("="*60)
+        click.echo("=" * 60)
 
         self.print_success("Archivo válido")
         self.print_success(f"{result['total_stories']} historias encontradas")
@@ -211,7 +229,7 @@ class OutputFormatter:
         click.echo(f"  - Total subtareas: {result['total_subtasks']}")
         click.echo(f"  - Con parent: {result['with_parent']}")
 
-        if result['invalid_subtasks'] > 0:
+        if result["invalid_subtasks"] > 0:
             self.print_error(f"Subtareas inválidas: {result['invalid_subtasks']}")
             self.print_error("(vacías o >255 caracteres)")
 
@@ -219,10 +237,10 @@ class OutputFormatter:
         """Imprime resultado de test de conexión."""
         click.echo("Probando conexión con Jira...")
 
-        if result['connection_success']:
+        if result["connection_success"]:
             self.print_success("Conexión exitosa")
 
-            if result['project_valid']:
+            if result["project_valid"]:
                 self.print_success(f"Proyecto {result['project_key']} encontrado")
             else:
                 self.print_error(f"Proyecto {result['project_key']} no encontrado")
@@ -231,21 +249,21 @@ class OutputFormatter:
 
     def print_diagnose_result(self, result: Dict[str, Any]) -> None:
         """Imprime resultado de diagnóstico completo."""
-        click.echo("="*60)
+        click.echo("=" * 60)
         click.echo("DIAGNÓSTICO COMPLETO DE CONFIGURACIÓN")
-        click.echo("="*60)
+        click.echo("=" * 60)
 
         self.print_success("Conexión con Jira exitosa")
         self.print_success(f"Proyecto {result['project_key']} válido")
         # Sección de historias de usuario
-        click.echo("\n" + "="*40)
+        click.echo("\n" + "=" * 40)
         click.echo("HISTORIAS DE USUARIO")
-        click.echo("="*40)
+        click.echo("=" * 40)
         self.print_success(f"Tipo de historia '{result['story_type']}' válido")
 
-        if result['story_required_fields']:
+        if result["story_required_fields"]:
             click.echo("\nCAMPOS OBLIGATORIOS PARA HISTORIAS:")
-            for field_id, field_value in result['story_required_fields'].items():
+            for field_id, field_value in result["story_required_fields"].items():
                 click.echo(f"   * {field_id}: {field_value}")
 
             click.echo("\nCONFIGURACIÓN SUGERIDA PARA .env:")
@@ -254,31 +272,37 @@ class OutputFormatter:
             self.print_success("Sin campos obligatorios adicionales para historias")
 
         # Sección de features
-        click.echo("\n" + "="*40)
+        click.echo("\n" + "=" * 40)
         click.echo("FEATURES")
-        click.echo("="*40)
+        click.echo("=" * 40)
         self.print_success(f"Tipo de feature '{result['feature_type']}' válido")
 
-        if result['feature_required_fields']:
+        if result["feature_required_fields"]:
             click.echo("\nCAMPOS OBLIGATORIOS PARA FEATURES:")
-            for field_id, field_value in result['feature_required_fields'].items():
+            for field_id, field_value in result["feature_required_fields"].items():
                 click.echo(f"   * {field_id}: {field_value}")
 
             click.echo("\nCONFIGURACIÓN SUGERIDA PARA .env:")
-            click.echo(f"FEATURE_REQUIRED_FIELDS='{result['feature_config_suggestion']}'")
+            click.echo(
+                f"FEATURE_REQUIRED_FIELDS='{result['feature_config_suggestion']}'"
+            )
         else:
             self.print_success("Sin campos obligatorios adicionales para features")
 
         # Configuración actual
-        click.echo("\n" + "="*40)
+        click.echo("\n" + "=" * 40)
         click.echo("CONFIGURACIÓN ACTUAL")
-        click.echo("="*40)
+        click.echo("=" * 40)
         click.echo(f"   DEFAULT_ISSUE_TYPE: {result['current_config']['story_type']}")
-        click.echo(f"   STORY_REQUIRED_FIELDS: {result['current_config']['story_required_fields'] or 'No configurado'}")
+        click.echo(
+            f"   STORY_REQUIRED_FIELDS: {result['current_config']['story_required_fields'] or 'No configurado'}"
+        )
         click.echo(f"   FEATURE_ISSUE_TYPE: {result['current_config']['feature_type']}")
-        click.echo(f"   FEATURE_REQUIRED_FIELDS: {result['current_config']['feature_required_fields'] or 'No configurado'}")
-        
-        if result['story_required_fields'] or result['feature_required_fields']:
+        click.echo(
+            f"   FEATURE_REQUIRED_FIELDS: {result['current_config']['feature_required_fields'] or 'No configurado'}"
+        )
+
+        if result["story_required_fields"] or result["feature_required_fields"]:
             click.echo("\nNOTA: Revisa los logs para ver todos los valores disponibles")
 
         click.echo("\nDiagnóstico completado")

@@ -1,4 +1,5 @@
 """Entidad ProcessResult del dominio."""
+
 from typing import List, Optional
 
 from pydantic import BaseModel
@@ -8,6 +9,7 @@ from src.domain.entities.feature_result import FeatureResult
 
 class ProcessResult(BaseModel):
     """Resultado del procesamiento de una historia de usuario."""
+
     success: bool
     jira_key: Optional[str] = None
     error_message: Optional[str] = None

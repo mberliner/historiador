@@ -1,6 +1,7 @@
 """Interfaz para gestor de features."""
+
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, Any, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from src.domain.entities.feature_result import FeatureResult
 
@@ -24,12 +25,16 @@ class FeatureManagerInterface(ABC):
         pass
 
     @abstractmethod
-    def process_parent(self, parent_text: str, project_key: str) -> Tuple[Optional[str], Optional[FeatureResult]]:
+    def process_parent(
+        self, parent_text: str, project_key: str
+    ) -> Tuple[Optional[str], Optional[FeatureResult]]:
         """Procesa el campo parent y retorna la key a usar y info de feature si se creó."""
         pass
 
     @abstractmethod
-    def find_existing_feature(self, description: str, project_key: str) -> Optional[str]:
+    def find_existing_feature(
+        self, description: str, project_key: str
+    ) -> Optional[str]:
         """Busca feature existente por descripción."""
         pass
 

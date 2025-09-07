@@ -1,16 +1,17 @@
 """Caso de uso para procesar archivos de historias de usuario."""
+
 import glob
 import logging
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
-from src.infrastructure.settings import Settings
-from src.infrastructure.file_system.file_processor import FileProcessor
-from src.infrastructure.jira.jira_client import JiraClient
 from src.domain.entities.batch_result import BatchResult
 from src.domain.entities.process_result import ProcessResult
+from src.infrastructure.file_system.file_processor import FileProcessor
+from src.infrastructure.jira.jira_client import JiraClient
+from src.infrastructure.settings import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ class ProcessFilesUseCase:
             logger.info("Directorio de entrada creado: %s", input_dir)
             return []
 
-        patterns = ['*.csv', '*.xlsx', '*.xls']
+        patterns = ["*.csv", "*.xlsx", "*.xls"]
         files = []
 
         for pattern in patterns:
@@ -74,8 +75,12 @@ class ProcessFilesUseCase:
                 for f in files_to_process
             )
 
-            if has_subtasks and not self.jira_client.validate_subtask_issue_type(self.settings.project_key):
-                raise Exception(f"Tipo de subtarea '{self.settings.subtask_issue_type}' no válido")
+            if has_subtasks and not self.jira_client.validate_subtask_issue_type(
+                self.settings.project_key
+            ):
+                raise Exception(
+                    f"Tipo de subtarea '{self.settings.subtask_issue_type}' no válido"
+                )
 
             # Verificar si hay parents y validar tipo de feature
             has_parents = any(
@@ -84,7 +89,9 @@ class ProcessFilesUseCase:
             )
 
             if has_parents and not self.jira_client.validate_feature_issue_type():
-                raise Exception(f"Tipo de feature '{self.settings.feature_issue_type}' no válido")
+                raise Exception(
+                    f"Tipo de feature '{self.settings.feature_issue_type}' no válido"
+                )
 
     def process_single_file(self, file_path: str) -> BatchResult:
         """Procesa un único archivo."""
@@ -92,7 +99,9 @@ class ProcessFilesUseCase:
         stories = []  # Para almacenar las historias
         batch_count = 0
 
-        for row_number, story in enumerate(self.file_processor.process_file(file_path), start=1):
+        for row_number, story in enumerate(
+            self.file_processor.process_file(file_path), start=1
+        ):
             result = self.jira_client.create_user_story(story, row_number)
             results.append(result)
             stories.append(story)  # Guardar story para mostrar título después
@@ -106,7 +115,7 @@ class ProcessFilesUseCase:
             total_processed=len(results),
             successful=sum(1 for r in results if r.success),
             failed=sum(1 for r in results if not r.success),
-            results=results
+            results=results,
         )
 
         # Agregar stories al batch_result para poder mostrarlos después
@@ -128,17 +137,24 @@ class ProcessFilesUseCase:
         file_results = []
 
         for file_index, current_file in enumerate(files_to_process, 1):
-            logger.info("Procesando archivo %d/%d: %s", file_index, total_files, Path(current_file).name)
+            logger.info(
+                "Procesando archivo %d/%d: %s",
+                file_index,
+                total_files,
+                Path(current_file).name,
+            )
 
             try:
                 batch_result = self.process_single_file(current_file)
 
-                file_results.append({
-                    'file_path': current_file,
-                    'file_name': Path(current_file).name,
-                    'file_index': file_index,
-                    'batch_result': batch_result
-                })
+                file_results.append(
+                    {
+                        "file_path": current_file,
+                        "file_name": Path(current_file).name,
+                        "file_index": file_index,
+                        "batch_result": batch_result,
+                    }
+                )
 
                 overall_results.extend(batch_result.results)
 
@@ -149,27 +165,35 @@ class ProcessFilesUseCase:
                 elif self.settings.dry_run:
                     logger.info("Dry-run mode: archivo no movido - %s", current_file)
                 else:
-                    logger.warning("Archivo no movido debido a fallos: %s", current_file)
+                    logger.warning(
+                        "Archivo no movido debido a fallos: %s", current_file
+                    )
 
             except Exception as e:
                 logger.error("Error procesando archivo %s: %s", current_file, str(e))
-                file_results.append({
-                    'file_path': current_file,
-                    'file_name': Path(current_file).name,
-                    'file_index': file_index,
-                    'error': str(e)
-                })
+                file_results.append(
+                    {
+                        "file_path": current_file,
+                        "file_name": Path(current_file).name,
+                        "file_index": file_index,
+                        "error": str(e),
+                    }
+                )
 
         # Resumen general
-        overall_batch_result = BatchResult(
-            total_processed=len(overall_results),
-            successful=sum(1 for r in overall_results if r.success),
-            failed=sum(1 for r in overall_results if not r.success),
-            results=overall_results
-        ) if overall_results else None
+        overall_batch_result = (
+            BatchResult(
+                total_processed=len(overall_results),
+                successful=sum(1 for r in overall_results if r.success),
+                failed=sum(1 for r in overall_results if not r.success),
+                results=overall_results,
+            )
+            if overall_results
+            else None
+        )
 
         return {
-            'total_files': total_files,
-            'file_results': file_results,
-            'overall_result': overall_batch_result
+            "total_files": total_files,
+            "file_results": file_results,
+            "overall_result": overall_batch_result,
         }

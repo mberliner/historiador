@@ -1,5 +1,6 @@
 """Caso de uso para validar archivos."""
-from typing import Dict, Any
+
+from typing import Any, Dict
 
 from src.infrastructure.file_system.file_processor import FileProcessor
 
@@ -27,15 +28,17 @@ class ValidateFileUseCase:
         invalid_subtasks = 0
         for story in stories:
             if story.subtareas:
-                invalid_subtasks += sum(1 for s in story.subtareas if not s.strip() or len(s.strip()) > 255)
+                invalid_subtasks += sum(
+                    1 for s in story.subtareas if not s.strip() or len(s.strip()) > 255
+                )
 
         return {
-            'file': file_path,
-            'rows': preview_rows,
-            'preview': df.to_string(index=False),
-            'total_stories': len(stories),
-            'with_subtasks': with_subtasks,
-            'total_subtasks': total_subtasks,
-            'with_parent': with_parent,
-            'invalid_subtasks': invalid_subtasks
+            "file": file_path,
+            "rows": preview_rows,
+            "preview": df.to_string(index=False),
+            "total_stories": len(stories),
+            "with_subtasks": with_subtasks,
+            "total_subtasks": total_subtasks,
+            "with_parent": with_parent,
+            "invalid_subtasks": invalid_subtasks,
         }

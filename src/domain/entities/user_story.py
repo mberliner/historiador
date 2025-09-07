@@ -1,4 +1,5 @@
 """Entidad UserStory del dominio."""
+
 from typing import List, Optional
 
 from pydantic import BaseModel, Field, validator
@@ -6,19 +7,28 @@ from pydantic import BaseModel, Field, validator
 
 class UserStory(BaseModel):
     """Entidad de dominio para una historia de usuario."""
-    titulo: str = Field(
-        ..., min_length=1, max_length=255,
-        description="Título de la historia de usuario")
-    descripcion: str = Field(
-        ..., min_length=1, description="Descripción detallada de la historia")
-    criterio_aceptacion: Optional[List[str]] = Field(
-        default=None, description="Lista de criterios de aceptación separados por ; o \\n")
-    subtareas: Optional[List[str]] = Field(
-        default=None, description="Lista de subtareas separadas por ; o \\n")
-    parent: Optional[str] = Field(
-        default=None, description="Key del Epic o Feature padre")
 
-    @validator('criterio_aceptacion', pre=True)
+    titulo: str = Field(
+        ...,
+        min_length=1,
+        max_length=255,
+        description="Título de la historia de usuario",
+    )
+    descripcion: str = Field(
+        ..., min_length=1, description="Descripción detallada de la historia"
+    )
+    criterio_aceptacion: Optional[List[str]] = Field(
+        default=None,
+        description="Lista de criterios de aceptación separados por ; o \\n",
+    )
+    subtareas: Optional[List[str]] = Field(
+        default=None, description="Lista de subtareas separadas por ; o \\n"
+    )
+    parent: Optional[str] = Field(
+        default=None, description="Key del Epic o Feature padre"
+    )
+
+    @validator("criterio_aceptacion", pre=True)
     def parse_criterio_aceptacion(cls, v):  # pylint: disable=no-self-argument
         """Procesa el campo criterio_aceptacion dividiéndolo por ; y \\n.
 
@@ -28,20 +38,20 @@ class UserStory(BaseModel):
         Returns:
             Lista de criterios o None
         """
-        if v is None or v == '':
+        if v is None or v == "":
             return None
         if isinstance(v, str):
             # Permitir separadores: ';' y salto de línea '\\n'
             # Primero dividir por ';', luego por '\\n' en cada parte
             criterios = []
-            for part in v.split(';'):
-                for criterio in part.split('\n'):
+            for part in v.split(";"):
+                for criterio in part.split("\n"):
                     if criterio.strip():
                         criterios.append(criterio.strip())
             return criterios if criterios else None
         return v
 
-    @validator('subtareas', pre=True)
+    @validator("subtareas", pre=True)
     def parse_subtareas(cls, v):  # pylint: disable=no-self-argument
         """Procesa el campo subtareas dividiéndolo por ; y \n.
 
@@ -51,14 +61,14 @@ class UserStory(BaseModel):
         Returns:
             Lista de subtareas o None
         """
-        if v is None or v == '':
+        if v is None or v == "":
             return None
         if isinstance(v, str):
             # Permitir separadores: ';' y salto de línea '\n'
             # Primero dividir por ';', luego por '\n' en cada parte
             tasks = []
-            for part in v.split(';'):
-                for task in part.split('\n'):
+            for part in v.split(";"):
+                for task in part.split("\n"):
                     if task.strip():
                         tasks.append(task.strip())
             return tasks if tasks else None

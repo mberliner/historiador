@@ -1,4 +1,5 @@
 """Comandos de la CLI separados del main."""
+
 import json
 import logging
 import sys
@@ -8,8 +9,8 @@ import click
 import requests
 from pydantic import ValidationError
 
-from src.infrastructure.settings import Settings
 from src.infrastructure.jira.metadata_detector import JiraMetadataDetector
+from src.infrastructure.settings import Settings
 
 
 def safe_init_settings():
@@ -19,8 +20,8 @@ def safe_init_settings():
     except ValidationError as e:
         missing_fields = []
         for error in e.errors():
-            if error['type'] == 'missing':
-                field_name = error['loc'][0]
+            if error["type"] == "missing":
+                field_name = error["loc"][0]
                 env_var = field_name.upper()
                 missing_fields.append((field_name, env_var))
 
@@ -44,21 +45,21 @@ def _configure_interactively(missing_fields):
 
     env_values = {}
     field_descriptions = {
-        'jira_url': 'URL de Jira (ej: https://company.atlassian.net)',
-        'jira_email': 'Email del usuario de Jira',
-        'jira_api_token': 'API Token de Jira',
-        'project_key': 'Clave del proyecto en Jira (ej: PROJ)'
+        "jira_url": "URL de Jira (ej: https://company.atlassian.net)",
+        "jira_email": "Email del usuario de Jira",
+        "jira_api_token": "API Token de Jira",
+        "project_key": "Clave del proyecto en Jira (ej: PROJ)",
     }
 
     # Primero obtener los campos básicos de conexión
-    basic_fields = ['jira_url', 'jira_email', 'jira_api_token', 'project_key']
+    basic_fields = ["jira_url", "jira_email", "jira_api_token", "project_key"]
     for field_name, env_var in missing_fields:
         if field_name not in basic_fields:
             continue
-            
+
         description = field_descriptions.get(field_name, f"Valor para {field_name}")
 
-        if field_name == 'jira_api_token':
+        if field_name == "jira_api_token":
             # Para API token usar hide_input para ocultar el valor
             value = click.prompt(f"{description}", hide_input=True, type=str)
         else:
@@ -93,14 +94,16 @@ def _detect_jira_configuration(env_values):
     try:
         # Crear sesión de prueba
         session = requests.Session()
-        session.auth = (env_values.get('JIRA_EMAIL', ''), env_values.get('JIRA_API_TOKEN', ''))
-        session.headers.update({
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-        })
+        session.auth = (
+            env_values.get("JIRA_EMAIL", ""),
+            env_values.get("JIRA_API_TOKEN", ""),
+        )
+        session.headers.update(
+            {"Accept": "application/json", "Content-Type": "application/json"}
+        )
 
-        base_url = env_values.get('JIRA_URL', '').rstrip('/')
-        project_key = env_values.get('PROJECT_KEY', '')
+        base_url = env_values.get("JIRA_URL", "").rstrip("/")
+        project_key = env_values.get("PROJECT_KEY", "")
 
         # Probar conexión primero
         response = session.get(f"{base_url}/rest/api/3/myself", timeout=10)
@@ -108,7 +111,9 @@ def _detect_jira_configuration(env_values):
             return None
 
         # Validar proyecto
-        response = session.get(f"{base_url}/rest/api/3/project/{project_key}", timeout=10)
+        response = session.get(
+            f"{base_url}/rest/api/3/project/{project_key}", timeout=10
+        )
         if response.status_code != 200:
             return None
 
@@ -116,10 +121,12 @@ def _detect_jira_configuration(env_values):
 
         # Inicializar detector
         detector = JiraMetadataDetector(session, base_url, project_key)
-        
+
         # Detectar tipos de issue óptimos
         type_suggestions = detector.suggest_optimal_types()
-        click.echo(f"✓ Tipos de issue detectados: {type_suggestions['default_issue_type']}, {type_suggestions['subtask_issue_type']}, {type_suggestions['feature_issue_type']}")
+        click.echo(
+            f"✓ Tipos de issue detectados: {type_suggestions['default_issue_type']}, {type_suggestions['subtask_issue_type']}, {type_suggestions['feature_issue_type']}"
+        )
 
         # Detectar campos de criterios de aceptación
         criteria_fields = detector.detect_acceptance_criteria_fields()
@@ -127,38 +134,47 @@ def _detect_jira_configuration(env_values):
         if criteria_fields:
             click.echo(f"✓ {len(criteria_fields)} campo(s) de criterios encontrado(s)")
             if len(criteria_fields) == 1:
-                selected_criteria_field = criteria_fields[0]['id']
-                click.echo(f"  → Usando: {criteria_fields[0]['name']} ({selected_criteria_field})")
+                selected_criteria_field = criteria_fields[0]["id"]
+                click.echo(
+                    f"  → Usando: {criteria_fields[0]['name']} ({selected_criteria_field})"
+                )
             else:
                 click.echo("  Campos disponibles:")
                 for i, field in enumerate(criteria_fields[:3]):
                     click.echo(f"    [{i+1}] {field['name']} ({field['id']})")
-                choice = click.prompt("Seleccione campo de criterios (1 para el primero, 0 para ninguno)", 
-                                    type=int, default=1)
+                choice = click.prompt(
+                    "Seleccione campo de criterios (1 para el primero, 0 para ninguno)",
+                    type=int,
+                    default=1,
+                )
                 if 0 < choice <= len(criteria_fields):
-                    selected_criteria_field = criteria_fields[choice-1]['id']
+                    selected_criteria_field = criteria_fields[choice - 1]["id"]
 
         # Detectar campos obligatorios para Features
         feature_required, _ = detector.detect_feature_required_fields(
-            type_suggestions['feature_issue_type']
+            type_suggestions["feature_issue_type"]
         )
-        
+
         config = {
-            'DEFAULT_ISSUE_TYPE': type_suggestions['default_issue_type'],
-            'SUBTASK_ISSUE_TYPE': type_suggestions['subtask_issue_type'],
-            'FEATURE_ISSUE_TYPE': type_suggestions['feature_issue_type']
+            "DEFAULT_ISSUE_TYPE": type_suggestions["default_issue_type"],
+            "SUBTASK_ISSUE_TYPE": type_suggestions["subtask_issue_type"],
+            "FEATURE_ISSUE_TYPE": type_suggestions["feature_issue_type"],
         }
 
         if selected_criteria_field:
-            config['ACCEPTANCE_CRITERIA_FIELD'] = selected_criteria_field
+            config["ACCEPTANCE_CRITERIA_FIELD"] = selected_criteria_field
 
         if feature_required:
-            config['FEATURE_REQUIRED_FIELDS'] = json.dumps(feature_required)
-            click.echo(f"✓ {len(feature_required)} campo(s) obligatorio(s) detectado(s) para Features")
-            
+            config["FEATURE_REQUIRED_FIELDS"] = json.dumps(feature_required)
+            click.echo(
+                f"✓ {len(feature_required)} campo(s) obligatorio(s) detectado(s) para Features"
+            )
+
             # Mostrar información de los campos obligatorios detectados
-            for field_id, field_value in list(feature_required.items())[:2]:  # Mostrar máximo 2
-                if isinstance(field_value, dict) and 'id' in field_value:
+            for field_id, field_value in list(feature_required.items())[
+                :2
+            ]:  # Mostrar máximo 2
+                if isinstance(field_value, dict) and "id" in field_value:
                     click.echo(f"  → Campo {field_id}: id={field_value['id']}")
 
         return config
@@ -179,39 +195,47 @@ def _create_env_file(env_values):
     ]
 
     # Agregar campo de criterios si fue detectado
-    if 'ACCEPTANCE_CRITERIA_FIELD' in env_values:
-        env_content.append(f"ACCEPTANCE_CRITERIA_FIELD={env_values['ACCEPTANCE_CRITERIA_FIELD']}")
+    if "ACCEPTANCE_CRITERIA_FIELD" in env_values:
+        env_content.append(
+            f"ACCEPTANCE_CRITERIA_FIELD={env_values['ACCEPTANCE_CRITERIA_FIELD']}"
+        )
 
-    env_content.extend([
-        "",
-        "# Configuración de tipos de issues (detectados automáticamente)",
-        f"DEFAULT_ISSUE_TYPE={env_values.get('DEFAULT_ISSUE_TYPE', 'Story')}",
-        f"SUBTASK_ISSUE_TYPE={env_values.get('SUBTASK_ISSUE_TYPE', 'Subtarea')}",
-        f"FEATURE_ISSUE_TYPE={env_values.get('FEATURE_ISSUE_TYPE', 'Feature')}",
-    ])
+    env_content.extend(
+        [
+            "",
+            "# Configuración de tipos de issues (detectados automáticamente)",
+            f"DEFAULT_ISSUE_TYPE={env_values.get('DEFAULT_ISSUE_TYPE', 'Story')}",
+            f"SUBTASK_ISSUE_TYPE={env_values.get('SUBTASK_ISSUE_TYPE', 'Subtarea')}",
+            f"FEATURE_ISSUE_TYPE={env_values.get('FEATURE_ISSUE_TYPE', 'Feature')}",
+        ]
+    )
 
     # Agregar campos obligatorios de Features si fueron detectados
-    if 'FEATURE_REQUIRED_FIELDS' in env_values:
-        env_content.extend([
-            "# Campos obligatorios para Features (detectados automáticamente)",
-            f"FEATURE_REQUIRED_FIELDS={env_values['FEATURE_REQUIRED_FIELDS']}"
-        ])
+    if "FEATURE_REQUIRED_FIELDS" in env_values:
+        env_content.extend(
+            [
+                "# Campos obligatorios para Features (detectados automáticamente)",
+                f"FEATURE_REQUIRED_FIELDS={env_values['FEATURE_REQUIRED_FIELDS']}",
+            ]
+        )
 
-    env_content.extend([
-        "",
-        "# Configuración de la aplicación",
-        "BATCH_SIZE=10",
-        "DRY_RUN=false",
-        "ROLLBACK_ON_SUBTASK_FAILURE=true",
-        "",
-        "# Configuración de directorios",
-        "INPUT_DIRECTORY=entrada",
-        "LOGS_DIRECTORY=logs",
-        "PROCESSED_DIRECTORY=procesados"
-    ])
+    env_content.extend(
+        [
+            "",
+            "# Configuración de la aplicación",
+            "BATCH_SIZE=10",
+            "DRY_RUN=false",
+            "ROLLBACK_ON_SUBTASK_FAILURE=true",
+            "",
+            "# Configuración de directorios",
+            "INPUT_DIRECTORY=entrada",
+            "LOGS_DIRECTORY=logs",
+            "PROCESSED_DIRECTORY=procesados",
+        ]
+    )
 
-    with open('.env', 'w', encoding='utf-8') as f:
-        f.write('\n'.join(env_content) + '\n')
+    with open(".env", "w", encoding="utf-8") as f:
+        f.write("\n".join(env_content) + "\n")
 
 
 def setup_logging(settings: Settings, level: str = "INFO"):
@@ -219,35 +243,36 @@ def setup_logging(settings: Settings, level: str = "INFO"):
     logs_dir = Path(settings.logs_directory)
     logs_dir.mkdir(exist_ok=True)
 
-    log_file = logs_dir / 'jira_batch.log'
+    log_file = logs_dir / "jira_batch.log"
 
     # Configurar logging solo para archivo, no para consola
     # La salida a consola se maneja por OutputFormatter
     logging.basicConfig(
         level=getattr(logging, level.upper()),
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler(str(log_file), encoding='utf-8')
-        ],
-        force=True  # Sobrescribir configuración existente
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[logging.FileHandler(str(log_file), encoding="utf-8")],
+        force=True,  # Sobrescribir configuración existente
     )
 
     # Silenciar logs de requests en consola para reducir ruido
-    logging.getLogger('urllib3').setLevel(logging.WARNING)
-    logging.getLogger('requests').setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("requests").setLevel(logging.WARNING)
 
 
 @click.command()
-@click.option('--file', '-f', help='Archivo Excel o CSV específico con las historias')
-@click.option('--project', '-p', help='Key del proyecto en Jira (ej: MYPROJ)')
-@click.option('--batch-size', '-b', default=10, help='Tamaño del lote de procesamiento')
-@click.option('--dry-run', is_flag=True, help='Modo de prueba sin crear issues')
-@click.option('--log-level', default='INFO',
-              type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR']))
+@click.option("--file", "-f", help="Archivo Excel o CSV específico con las historias")
+@click.option("--project", "-p", help="Key del proyecto en Jira (ej: MYPROJ)")
+@click.option("--batch-size", "-b", default=10, help="Tamaño del lote de procesamiento")
+@click.option("--dry-run", is_flag=True, help="Modo de prueba sin crear issues")
+@click.option(
+    "--log-level",
+    default="INFO",
+    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
+)
 def process_command(file, project, batch_size, dry_run, log_level):
     """Procesa archivo(s) y crea historias de usuario en Jira."""
-    from src.presentation.formatters.output_formatter import OutputFormatter
     from src.application.use_cases.process_files import ProcessFilesUseCase
+    from src.presentation.formatters.output_formatter import OutputFormatter
 
     # Configuración
     settings = safe_init_settings()
@@ -274,7 +299,9 @@ def process_command(file, project, batch_size, dry_run, log_level):
                 )
                 return
 
-        formatter.print_info(f"Iniciando procesamiento de {len(files_to_process)} archivo(s)...")
+        formatter.print_info(
+            f"Iniciando procesamiento de {len(files_to_process)} archivo(s)..."
+        )
 
         results = process_use_case.execute(files_to_process)
         formatter.print_results(results)
@@ -285,14 +312,13 @@ def process_command(file, project, batch_size, dry_run, log_level):
         sys.exit(1)
 
 
-
 @click.command()
-@click.option('--file', '-f', required=True, help='Archivo Excel o CSV a validar')
-@click.option('--rows', '-r', default=5, help='Número de filas a mostrar en preview')
+@click.option("--file", "-f", required=True, help="Archivo Excel o CSV a validar")
+@click.option("--rows", "-r", default=5, help="Número de filas a mostrar en preview")
 def validate_command(file, rows):
     """Valida el formato del archivo sin crear issues."""
-    from src.presentation.formatters.output_formatter import OutputFormatter
     from src.application.use_cases.validate_file import ValidateFileUseCase
+    from src.presentation.formatters.output_formatter import OutputFormatter
 
     # Usar safe_init_settings para configuración interactiva
     safe_init_settings()
@@ -311,8 +337,8 @@ def validate_command(file, rows):
 @click.command()
 def test_connection_command():
     """Prueba la conexión con Jira usando la configuración actual."""
-    from src.presentation.formatters.output_formatter import OutputFormatter
     from src.application.use_cases.test_connection import TestConnectionUseCase
+    from src.presentation.formatters.output_formatter import OutputFormatter
 
     # Usar safe_init_settings para configuración interactiva
     safe_init_settings()
@@ -329,13 +355,17 @@ def test_connection_command():
 
 
 @click.command()
-@click.option('--project', '-p', help='Key del proyecto (override settings)')
-@click.option('--log-level', default='INFO',
-              type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR']))
+@click.option("--project", "-p", help="Key del proyecto (override settings)")
+@click.option(
+    "--log-level",
+    default="INFO",
+    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
+)
 def diagnose_command(project, log_level):
     """Diagnostica configuración y campos obligatorios para historias y features."""
+    from src.application.use_cases.diagnose_features import \
+        DiagnoseFeaturesUseCase
     from src.presentation.formatters.output_formatter import OutputFormatter
-    from src.application.use_cases.diagnose_features import DiagnoseFeaturesUseCase
 
     # Configurar logging
     settings = safe_init_settings()

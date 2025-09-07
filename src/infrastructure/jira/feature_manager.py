@@ -1,11 +1,14 @@
 """Gestor de features/parents para historias de usuario."""
-import re
+
 import json
 import logging
-from typing import Optional, Dict, Any, Tuple, List
+import re
+from typing import Any, Dict, List, Optional, Tuple
+
 import requests
-from src.infrastructure.settings import Settings
+
 from src.infrastructure.jira import utils as jira_utils
+from src.infrastructure.settings import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -16,11 +19,13 @@ class FeatureManager:
     def __init__(self, settings: Settings, jira_session: requests.Session):
         self.settings = settings
         self.session = jira_session
-        self.base_url = settings.jira_url.rstrip('/')
+        self.base_url = settings.jira_url.rstrip("/")
         # Cache para evitar crear features duplicadas en el mismo lote
-        self._feature_cache: Dict[str, str] = {}  # normalized_description -> feature_key
+        self._feature_cache: Dict[str, str] = (
+            {}
+        )  # normalized_description -> feature_key
         # Pattern para detectar keys de Jira (ej: PROJ-123)
-        self._jira_key_pattern = re.compile(r'^[A-Z][A-Z0-9]*-\d+$')
+        self._jira_key_pattern = re.compile(r"^[A-Z][A-Z0-9]*-\d+$")
         # Campo Epic Name (se detecta automáticamente)
         self._epic_name_field_id: Optional[str] = None
 
@@ -54,20 +59,26 @@ class FeatureManager:
 
         # Remover acentos y caracteres especiales comunes
         replacements = {
-            'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u', 'ü': 'u',
-            'ñ': 'n', 'ç': 'c'
+            "á": "a",
+            "é": "e",
+            "í": "i",
+            "ó": "o",
+            "ú": "u",
+            "ü": "u",
+            "ñ": "n",
+            "ç": "c",
         }
         for old, new in replacements.items():
             normalized = normalized.replace(old, new)
 
         # Remover múltiples espacios y reemplazar con uno solo
-        normalized = re.sub(r'\s+', ' ', normalized)
+        normalized = re.sub(r"\s+", " ", normalized)
 
         # Remover puntuación irrelevante al final
-        normalized = re.sub(r'[.,:;!?]+$', '', normalized)
+        normalized = re.sub(r"[.,:;!?]+$", "", normalized)
 
         # Remover caracteres especiales pero mantener espacios, guiones y letras/números
-        normalized = re.sub(r'[^\w\s\-]', '', normalized)
+        normalized = re.sub(r"[^\w\s\-]", "", normalized)
 
         return normalized.strip()
 
@@ -75,15 +86,20 @@ class FeatureManager:
         """Valida que el tipo de issue 'Feature' existe en el proyecto."""
         try:
             issue_types = self._get_issue_types()
-            feature_names = [it["name"] for it in issue_types if not it.get("subtask", False)]
+            feature_names = [
+                it["name"] for it in issue_types if not it.get("subtask", False)
+            ]
 
-            feature_type = getattr(self.settings, 'feature_issue_type', 'Feature')
+            feature_type = getattr(self.settings, "feature_issue_type", "Feature")
 
             if feature_type in feature_names:
                 return True
 
-            logger.error("Tipo de feature '%s' no encontrado. Disponibles: %s",
-                         feature_type, feature_names)
+            logger.error(
+                "Tipo de feature '%s' no encontrado. Disponibles: %s",
+                feature_type,
+                feature_names,
+            )
             return False
 
         except Exception as e:
@@ -93,21 +109,23 @@ class FeatureManager:
     def get_required_fields_for_feature(self) -> Dict[str, Any]:
         """Obtiene campos obligatorios para crear features."""
         try:
-            feature_type = getattr(self.settings, 'feature_issue_type', 'Feature')
+            feature_type = getattr(self.settings, "feature_issue_type", "Feature")
 
             response = self.session.get(
                 f"{self.base_url}/rest/api/3/issue/createmeta",
                 params={
-                    'projectKeys': self.settings.project_key,
-                    'issuetypeNames': feature_type,
-                    'expand': 'projects.issuetypes.fields'
-                }
+                    "projectKeys": self.settings.project_key,
+                    "issuetypeNames": feature_type,
+                    "expand": "projects.issuetypes.fields",
+                },
             )
             response.raise_for_status()
             data = response.json()
 
             if not data.get("projects") or len(data["projects"]) == 0:
-                logger.warning("No se encontraron proyectos en createmeta para features")
+                logger.warning(
+                    "No se encontraron proyectos en createmeta para features"
+                )
                 return {}
 
             project = data["projects"][0]
@@ -127,7 +145,11 @@ class FeatureManager:
                 # Detectar campo Epic Name
                 if "epic" in field_name and "name" in field_name:
                     epic_name_field_id = field_id
-                    logger.info("Campo Epic Name detectado: %s (%s)", field_info.get("name", field_id), field_id)
+                    logger.info(
+                        "Campo Epic Name detectado: %s (%s)",
+                        field_info.get("name", field_id),
+                        field_id,
+                    )
 
                 if field_info.get("required", False):
                     # Campos básicos ya manejados
@@ -137,15 +159,25 @@ class FeatureManager:
                     field_name_display = field_info.get("name", field_id)
                     allowed_values = field_info.get("allowedValues", [])
 
-                    logger.info("Campo obligatorio encontrado: %s (%s)", field_name_display, field_id)
+                    logger.info(
+                        "Campo obligatorio encontrado: %s (%s)",
+                        field_name_display,
+                        field_id,
+                    )
 
                     # Mostrar todos los valores disponibles
                     if allowed_values and len(allowed_values) > 0:
                         logger.info("  Valores disponibles:")
-                        for i, value in enumerate(allowed_values[:5]):  # Mostrar máximo 5
-                            value_display = value.get("value", value.get("name", str(value)))
+                        for i, value in enumerate(
+                            allowed_values[:5]
+                        ):  # Mostrar máximo 5
+                            value_display = value.get(
+                                "value", value.get("name", str(value))
+                            )
                             value_id = value.get("id", "N/A")
-                            logger.info("    [%s] %s (id: %s)", i+1, value_display, value_id)
+                            logger.info(
+                                "    [%s] %s (id: %s)", i + 1, value_display, value_id
+                            )
 
                         if len(allowed_values) > 5:
                             logger.info("    ... y %d más", len(allowed_values) - 5)
@@ -156,24 +188,33 @@ class FeatureManager:
                         if "id" in default_value:
                             required_fields[field_id] = {"id": default_value["id"]}
                         elif "value" in default_value:
-                            required_fields[field_id] = {"value": default_value["value"]}
+                            required_fields[field_id] = {
+                                "value": default_value["value"]
+                            }
                         else:
                             required_fields[field_id] = default_value
 
-                        default_display = default_value.get("value", default_value.get("name", str(default_value)))
+                        default_display = default_value.get(
+                            "value", default_value.get("name", str(default_value))
+                        )
                         logger.info("  Valor sugerido por defecto: %s", default_display)
 
             # Guardar el Epic Name field ID para uso posterior
             if epic_name_field_id:
                 self._epic_name_field_id = epic_name_field_id
             else:
-                logger.warning("No se encontró campo Epic Name en el tipo de issue %s", feature_type)
+                logger.warning(
+                    "No se encontró campo Epic Name en el tipo de issue %s",
+                    feature_type,
+                )
                 self._epic_name_field_id = None
 
             return required_fields
 
         except Exception as e:
-            logger.error("Error obteniendo campos obligatorios para features: %s", str(e))
+            logger.error(
+                "Error obteniendo campos obligatorios para features: %s", str(e)
+            )
             return {}
 
     def validate_existing_issue(self, issue_key: str) -> bool:
@@ -201,31 +242,30 @@ class FeatureManager:
             jql = f'project = "{self.settings.project_key}" AND issuetype = "{feature_type}" AND summary ~ "{escaped_title}"'
 
             params = {
-                'jql': jql,
-                'maxResults': 5,  # Limitar resultados
-                'fields': 'key,summary,description'
+                "jql": jql,
+                "maxResults": 5,  # Limitar resultados
+                "fields": "key,summary,description",
             }
 
             response = self.session.get(
-                f"{self.base_url}/rest/api/3/search",
-                params=params
+                f"{self.base_url}/rest/api/3/search", params=params
             )
             response.raise_for_status()
 
             data = response.json()
-            issues = data.get('issues', [])
+            issues = data.get("issues", [])
 
             if not issues:
                 return None
 
             # Verificar si alguna feature tiene descripción similar
             for issue in issues:
-                issue_key = issue['key']
-                issue_summary = issue['fields'].get('summary', '')
-                issue_description = ''
+                issue_key = issue["key"]
+                issue_summary = issue["fields"].get("summary", "")
+                issue_description = ""
 
                 # Extraer descripción si existe
-                desc_field = issue['fields'].get('description')
+                desc_field = issue["fields"].get("description")
                 if desc_field and isinstance(desc_field, dict):
                     issue_description = self._extract_text_from_description(desc_field)
 
@@ -233,7 +273,11 @@ class FeatureManager:
                 issue_normalized = self._normalize_description(issue_description)
 
                 if issue_normalized == normalized_description:
-                    logger.info("Encontrada feature existente: %s - %s", issue_key, issue_summary)
+                    logger.info(
+                        "Encontrada feature existente: %s - %s",
+                        issue_key,
+                        issue_summary,
+                    )
                     return issue_key
 
                 # También comparar por título normalizado como fallback
@@ -241,7 +285,11 @@ class FeatureManager:
                 expected_normalized = self._normalize_description(expected_title)
 
                 if title_normalized == expected_normalized:
-                    logger.info("Encontrada feature existente por título: %s - %s", issue_key, issue_summary)
+                    logger.info(
+                        "Encontrada feature existente por título: %s - %s",
+                        issue_key,
+                        issue_summary,
+                    )
                     return issue_key
 
             return None
@@ -257,19 +305,19 @@ class FeatureManager:
             if not isinstance(description_field, dict):
                 return str(description_field) if description_field else ""
 
-            content = description_field.get('content', [])
+            content = description_field.get("content", [])
             if not content:
                 return ""
 
             text_parts = []
             for block in content:
-                if isinstance(block, dict) and block.get('type') == 'paragraph':
-                    paragraph_content = block.get('content', [])
+                if isinstance(block, dict) and block.get("type") == "paragraph":
+                    paragraph_content = block.get("content", [])
                     for item in paragraph_content:
-                        if isinstance(item, dict) and item.get('type') == 'text':
-                            text_parts.append(item.get('text', ''))
+                        if isinstance(item, dict) and item.get("type") == "text":
+                            text_parts.append(item.get("text", ""))
 
-            return ' '.join(text_parts).strip()
+            return " ".join(text_parts).strip()
 
         except Exception as e:
             logger.warning("Error extrayendo texto de descripción: %s", str(e))
@@ -293,12 +341,12 @@ class FeatureManager:
             title = self._generate_feature_title(description)
 
             # Preparar descripción formateada
-            description_content = [{
-                "type": "paragraph",
-                "content": [
-                    {"type": "text", "text": description}
-                ]
-            }]
+            description_content = [
+                {
+                    "type": "paragraph",
+                    "content": [{"type": "text", "text": description}],
+                }
+            ]
 
             # Crear payload para la feature
             feature_data = {
@@ -308,9 +356,11 @@ class FeatureManager:
                     "description": {
                         "type": "doc",
                         "version": 1,
-                        "content": description_content
+                        "content": description_content,
                     },
-                    "issuetype": {"name": getattr(self.settings, 'feature_issue_type', 'Feature')}
+                    "issuetype": {
+                        "name": getattr(self.settings, "feature_issue_type", "Feature")
+                    },
                 }
             }
 
@@ -320,15 +370,24 @@ class FeatureManager:
             # Primero intentar usar configuración manual
             if self.settings.feature_required_fields:
                 try:
-                    additional_fields = json.loads(self.settings.feature_required_fields)
-                    logger.debug("Campos adicionales de configuración: %s", additional_fields)
+                    additional_fields = json.loads(
+                        self.settings.feature_required_fields
+                    )
+                    logger.debug(
+                        "Campos adicionales de configuración: %s", additional_fields
+                    )
                 except Exception as e:
-                    logger.warning("Error parseando feature_required_fields: %s", str(e))
+                    logger.warning(
+                        "Error parseando feature_required_fields: %s", str(e)
+                    )
 
             # Si no hay configuración manual, obtener automáticamente
             if not additional_fields:
                 additional_fields = self.get_required_fields_for_feature()
-                logger.debug("Campos obligatorios detectados automáticamente: %s", additional_fields)
+                logger.debug(
+                    "Campos obligatorios detectados automáticamente: %s",
+                    additional_fields,
+                )
 
             # Si no se ha detectado el Epic Name aún, intentar detectarlo
             elif self._epic_name_field_id is None:
@@ -341,12 +400,13 @@ class FeatureManager:
             # Asignar Epic Name si se detectó el campo
             if self._epic_name_field_id:
                 feature_data["fields"][self._epic_name_field_id] = title
-                logger.debug("Asignando Epic Name: %s = %s", self._epic_name_field_id, title)
+                logger.debug(
+                    "Asignando Epic Name: %s = %s", self._epic_name_field_id, title
+                )
 
             # Crear feature
             response = self.session.post(
-                f"{self.base_url}/rest/api/3/issue",
-                data=json.dumps(feature_data)
+                f"{self.base_url}/rest/api/3/issue", data=json.dumps(feature_data)
             )
             response.raise_for_status()
 
@@ -390,7 +450,10 @@ class FeatureManager:
                 return parent_text, False
             else:
                 # Key no existe - FALLAR en lugar de crear feature
-                logger.error("Key de Jira %s no existe y no se puede crear feature con formato de key", parent_text)
+                logger.error(
+                    "Key de Jira %s no existe y no se puede crear feature con formato de key",
+                    parent_text,
+                )
                 return None, False
 
         # Caso 2: Es descripción de feature (o key inexistente)
@@ -399,7 +462,9 @@ class FeatureManager:
         # Verificar cache local primero
         if normalized_desc in self._feature_cache:
             cached_key = self._feature_cache[normalized_desc]
-            logger.debug("Usando feature cacheada: %s para '%s'", cached_key, parent_text[:50])
+            logger.debug(
+                "Usando feature cacheada: %s para '%s'", cached_key, parent_text[:50]
+            )
             return cached_key, False
 
         # Buscar en Jira features existentes
@@ -407,8 +472,11 @@ class FeatureManager:
         if existing_key:
             # Guardar en cache para futuras referencias
             self._feature_cache[normalized_desc] = existing_key
-            logger.info("Reutilizando feature existente: %s para descripción: %s",
-                       existing_key, parent_text[:50] + "...")
+            logger.info(
+                "Reutilizando feature existente: %s para descripción: %s",
+                existing_key,
+                parent_text[:50] + "...",
+            )
             return existing_key, False
 
         # Crear nueva feature
@@ -416,8 +484,11 @@ class FeatureManager:
         if feature_key:
             # Guardar en cache
             self._feature_cache[normalized_desc] = feature_key
-            logger.info("Feature creada y cacheada: %s para descripción: %s",
-                       feature_key, parent_text[:50] + "...")
+            logger.info(
+                "Feature creada y cacheada: %s para descripción: %s",
+                feature_key,
+                parent_text[:50] + "...",
+            )
             return feature_key, True
 
         logger.error("Falló creación de feature para: %s", parent_text[:50])
@@ -458,12 +529,14 @@ class FeatureManager:
         else:
             # Fallback: cortar en caracteres si no hay palabras válidas
             if len(clean_desc) > max_length:
-                return clean_desc[:max_length-3] + "..."
+                return clean_desc[: max_length - 3] + "..."
             return clean_desc
 
     def _get_issue_types(self) -> List[Dict[str, Any]]:
         """Obtiene los tipos de issue disponibles en el proyecto."""
-        return jira_utils.get_issue_types(self.session, self.base_url, self.settings.project_key)
+        return jira_utils.get_issue_types(
+            self.session, self.base_url, self.settings.project_key
+        )
 
     def clear_cache(self) -> None:
         """Limpia el cache de features creadas."""
@@ -474,5 +547,5 @@ class FeatureManager:
         """Obtiene estadísticas del cache de features."""
         return {
             "cached_features": len(self._feature_cache),
-            "features": list(self._feature_cache.items())
+            "features": list(self._feature_cache.items()),
         }

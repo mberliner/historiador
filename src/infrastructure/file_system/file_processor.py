@@ -1,4 +1,5 @@
 """Procesador de archivos CSV/Excel para historias de usuario."""
+
 import logging
 from pathlib import Path
 from typing import Iterator
@@ -13,12 +14,12 @@ logger = logging.getLogger(__name__)
 class FileProcessor:
     """Procesador de archivos Excel y CSV para historias de usuario."""
 
-    REQUIRED_COLUMNS = ['titulo', 'descripcion', 'criterio_aceptacion']
-    OPTIONAL_COLUMNS = ['subtareas', 'parent']
+    REQUIRED_COLUMNS = ["titulo", "descripcion", "criterio_aceptacion"]
+    OPTIONAL_COLUMNS = ["subtareas", "parent"]
 
     def __init__(self):
         """Inicializa el procesador con extensiones soportadas."""
-        self.supported_extensions = ['.csv', '.xlsx', '.xls']
+        self.supported_extensions = [".csv", ".xlsx", ".xls"]
 
     def validate_file(self, file_path: str) -> None:
         """Valida que el archivo existe y tiene extensión soportada.
@@ -36,8 +37,10 @@ class FileProcessor:
             raise FileNotFoundError(f"El archivo {file_path} no existe")
 
         if path.suffix.lower() not in self.supported_extensions:
-            raise ValueError(f"Extensión no soportada. Use: "
-                           f"{', '.join(self.supported_extensions)}")
+            raise ValueError(
+                f"Extensión no soportada. Use: "
+                f"{', '.join(self.supported_extensions)}"
+            )
 
     def read_file(self, file_path: str) -> pd.DataFrame:
         """Lee archivo Excel o CSV y retorna DataFrame.
@@ -55,8 +58,8 @@ class FileProcessor:
         path = Path(file_path)
 
         try:
-            if path.suffix.lower() == '.csv':
-                df = pd.read_csv(file_path, encoding='utf-8')
+            if path.suffix.lower() == ".csv":
+                df = pd.read_csv(file_path, encoding="utf-8")
             else:  # Excel files
                 df = pd.read_excel(file_path)
 
@@ -76,12 +79,14 @@ class FileProcessor:
         Raises:
             ValueError: Si faltan columnas requeridas
         """
-        missing_columns = [col for col in self.REQUIRED_COLUMNS
-                          if col not in df.columns]
+        missing_columns = [
+            col for col in self.REQUIRED_COLUMNS if col not in df.columns
+        ]
 
         if missing_columns:
-            raise ValueError(f"Columnas requeridas faltantes: "
-                           f"{', '.join(missing_columns)}")
+            raise ValueError(
+                f"Columnas requeridas faltantes: " f"{', '.join(missing_columns)}"
+            )
 
         logger.info("Validación de columnas exitosa")
 
@@ -106,17 +111,17 @@ class FileProcessor:
                 df[col] = None
 
         # Limpiar datos
-        df = df.fillna('')
-        df = df.replace('', None)
+        df = df.fillna("")
+        df = df.replace("", None)
 
         for index, row in df.iterrows():
             try:
                 story = UserStory(
-                    titulo=row['titulo'],
-                    descripcion=row['descripcion'],
-                    criterio_aceptacion=row['criterio_aceptacion'],
-                    subtareas=row.get('subtareas'),
-                    parent=row.get('parent')
+                    titulo=row["titulo"],
+                    descripcion=row["descripcion"],
+                    criterio_aceptacion=row["criterio_aceptacion"],
+                    subtareas=row.get("subtareas"),
+                    parent=row.get("parent"),
                 )
                 yield story
 
