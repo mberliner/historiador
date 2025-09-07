@@ -387,183 +387,97 @@ historiador/
 └── dist/                             # Ejecutable generado con PyInstaller
 ```
 
-## Agentes Personalizados
+## Comandos de Desarrollo Simplificados
 
-Los siguientes "agentes" están definidos como secuencias de comandos especializadas que Claude debe ejecutar cuando el usuario las solicite:
+Comandos agrupados por funcionalidad para tareas de desarrollo comunes:
 
-### qa-agent
-**Comando**: `qa-agent`
-**Propósito**: Agente de calidad completa para validación de código Python
+### qa-simple
+**Propósito**: Verificación completa de calidad (PyLint + Tests + Cobertura)
+```bash
+pylint src/ --fail-under=8.0 && pytest tests/unit/ --cov=src --cov-fail-under=80 --cov-report=term-missing
+```
 
-**Secuencia de ejecución**:
-1. Ejecutar `pylint src/ --fail-under=8.0` (validación de calidad)
-2. Ejecutar `pytest tests/unit/ --cov=src --cov-fail-under=80` (tests con cobertura)
-3. Si hay errores de pylint, mostrar y sugerir correcciones
-4. Si hay tests fallando, analizar y sugerir correcciones
-5. Verificar que PyInstaller puede generar ejecutable
-6. Re-ejecutar hasta que todos los checks pasen
-7. Generar reporte final con estadísticas de cobertura y calidad
+### build-simple  
+**Propósito**: Build optimizado + validación del ejecutable
+```bash
+rm -rf build/ dist/ && pyinstaller historiador-clean.spec --clean && dist/historiador --help && dist/historiador test-connection
+```
 
-**Criterios de éxito**: 
-- PyLint score ≥8.0
-- Cobertura de tests ≥80%
-- **CRÍTICO**: Todos los tests pasan al 100%
-- Ejecutable generado correctamente
+### coverage-simple
+**Propósito**: Reporte detallado de cobertura HTML
+```bash
+pytest tests/unit/ --cov=src --cov-report=html --cov-report=term-missing
+```
 
-**⚠️ REGLA DE CALIDAD**: El qa-agent debe FALLAR si hay tests fallidos. No es aceptable aprobar calidad con tests rotos.
+### lint-simple
+**Propósito**: Análisis PyLint detallado sin threshold
+```bash
+pylint src/ --output-format=text
+```
 
-### build-agent
-**Comando**: `build-agent`
-**Propósito**: Agente de construcción y validación de ejecutable optimizado
+### test-simple
+**Propósito**: Ejecutar tests con salida verbose
+```bash
+pytest tests/unit/ -v
+```
 
-**Secuencia de ejecución**:
-1. Ejecutar `qa-agent` primero (prerequisito)
-2. Limpiar build anterior: `rm -rf build/ dist/`
-3. Generar ejecutable optimizado: `pyinstaller historiador-clean.spec --clean` (52MB optimizado)
-4. Verificar que el ejecutable se crea en `dist/historiador`
-5. Probar comando básico: `./dist/historiador --help`
-6. Ejecutar test de conexión: `./dist/historiador test-connection`
-7. Probar modo dry-run: `./dist/historiador --dry-run` (procesamiento automático sin modificar Jira)
-8. Validar comando validate: `./dist/historiador validate --help` (sin archivos test)
-9. Generar reporte de build con tamaño del ejecutable
+### ci-simple
+**Propósito**: Simulación completa del pipeline de CI/CD
+```bash
+pylint src/ --fail-under=8.0 --output-format=text && pytest tests/unit/ --cov=src --cov-report=xml --cov-fail-under=80
+```
 
-**Criterios de éxito**:
-- qa-agent pasa completamente (incluyendo todos los tests)
-- Ejecutable optimizado generado sin errores (~52MB vs 83MB estándar)
-- Comandos básicos funcionan correctamente
-- Tests de funcionalidad básica pasan
+## Uso de Comandos
 
-### release-agent [VERSION]
-**Comando**: `release-agent v1.2.3`
-**Propósito**: Agente de preparación completa de release
-
-**Secuencia de ejecución**:
-1. Ejecutar `build-agent` (incluye qa-agent)
-2. Verificar que la rama actual esté limpia (git status)
-3. Actualizar versión en archivos relevantes si existen
-4. Ejecutar suite completa de tests de aplicación:
-   - `python src/main.py test-connection`
-   - `python src/main.py validate -f entrada/test_*.csv`
-   - `python src/main.py diagnose -p TEST`
-5. Crear tag git: `git tag -a {VERSION} -m "Release {VERSION}"`
-6. Generar o actualizar CHANGELOG con cambios desde último tag
-7. Crear commit de release si hay cambios de versión
-8. Mostrar resumen final para revisión antes de push
-
-**Criterios de éxito**:
-- build-agent pasa completamente
-- Todos los comandos de aplicación funcionan
-- Tag git creado correctamente
-- CHANGELOG actualizado
-
-### coverage-agent [THRESHOLD]
-**Comando**: `coverage-agent 80`
-**Propósito**: Agente especializado en análisis de cobertura de tests
-
-**Secuencia de ejecución**:
-1. Ejecutar tests con cobertura detallada: `pytest tests/unit/ --cov=src --cov-report=html --cov-report=xml --cov-report=term-missing`
-2. Generar reporte HTML en `htmlcov/index.html`
-3. Analizar archivos con cobertura insuficiente (excluye main.py)
-4. Identificar funciones/métodos sin tests en lógica de negocio
-5. Sugerir tests específicos para áreas no cubiertas
-6. Si el threshold no se alcanza, crear TODOs específicos
-7. Generar reporte detallado con métricas por capa de Clean Architecture
-
-**Nota sobre exclusiones**:
-- `src/main.py` se excluye porque es punto de entrada (45 líneas)
-- Los tests (`tests/`) se excluyen porque son código de testing
-- Se mide cobertura de lógica de negocio en capas: application, domain, infrastructure, presentation
-
-**Criterios de éxito**:
-- Cobertura total ≥ threshold especificado (default: 80%)
-- Reporte HTML generado
-- Identificación clara de gaps de testing
-
-### fix-agent [TIPO]
-**Comando**: `fix-agent lint` o `fix-agent tests` o `fix-agent all`
-**Propósito**: Agente de reparación automática de problemas comunes
-
-**Secuencia de ejecución**:
-Para `lint`:
-1. Ejecutar `pylint src/` y capturar errores
-2. Analizar warnings y errores comunes de Python
-3. Corregir problemas automáticamente (imports no usados, líneas largas, etc.)
-4. Re-ejecutar hasta alcanzar score ≥8.0
-
-Para `tests`:
-1. Ejecutar `pytest tests/unit/` y capturar fallos
-2. Analizar errores de importación y runtime
-3. Sugerir correcciones específicas para cada fallo
-4. Aplicar fixes automáticos para problemas comunes
-5. **CRÍTICO**: Si existen test fallidos corregir, no es aceptable un test fallando
-
-Para `all`:
-1. Ejecutar ambos secuencialmente
-2. Asegurar que todas las correcciones son compatibles
-3. Validar que el código sigue funcionando correctamente
-
-**Criterios de éxito**:
-- Sin errores críticos de pylint
-- **OBLIGATORIO**: Tests ejecutables y passing al 100%
-- Código funcionalmente equivalente
-
-**REGLA CRÍTICA DE CALIDAD**:
-❌ **INACEPTABLE**: Cualquier test fallando en el repositorio
-✅ **OBLIGATORIO**: Todos los tests deben pasar antes de cualquier commit o release
-⚠️ **IMPORTANTE**: Los tests fallidos indican regresiones o cambios no compatibles que deben corregirse inmediatamente
-
-### fix-coverage-agent [THRESHOLD]
-**Comando**: `fix-coverage-agent 80`
-**Propósito**: Agente iterativo que mejora la cobertura de tests hasta alcanzar el umbral especificado
-
-**Secuencia de ejecución**:
-1. Ejecutar tests con cobertura actual: `pytest tests/unit/ --cov=src --cov-report=html --cov-report=term-missing`
-2. Analizar reporte de cobertura e identificar archivos con cobertura insuficiente
-3. **Iteración principal** (repetir hasta alcanzar threshold):
-   a. Identificar el archivo con menor cobertura en lógica de negocio crítica
-   b. Analizar funciones/métodos sin tests usando reporte HTML
-   c. Priorizar casos más razonables y necesarios:
-      - Funciones públicas principales (entry points)
-      - Lógica de validación y transformación de datos
-      - Manejo de errores y casos edge críticos
-      - Algoritmos de negocio principales
-   d. Generar tests específicos para los casos identificados
-   e. Ejecutar tests para validar que funcionan correctamente
-   f. Medir nueva cobertura y continuar si no se alcanzó el threshold
-4. Generar reporte final con mejoras de cobertura por archivo
-5. Validar que todos los tests pasan correctamente
-6. Crear resumen de tests agregados por capa de Clean Architecture
-
-**Estrategia de priorización de tests**:
-- **Alta prioridad**: Domain entities, use cases críticos, validaciones
-- **Media prioridad**: Infrastructure adapters, formatters, utilities  
-- **Baja prioridad**: CLI commands, configuración, logging
-
-**Exclusiones inteligentes**:
-- No crear tests triviales para getters/setters simples
-- No testear código que solo hace llamadas directas a librerías externas
-- No crear tests para configuración estática
-- Excluir `src/main.py` (punto de entrada de 45 líneas)
-
-**Criterios de éxito**:
-- Cobertura total ≥ threshold especificado
-- Todos los tests nuevos pasan correctamente
-- Tests enfocados en lógica de negocio crítica
-- Código funcionalmente equivalente (sin regresiones)
-- Reporte detallado de mejoras por archivo/capa
-
-## Uso de Agentes
-
-Para usar cualquier agente, simplemente escribir su nombre como comando:
+Para usar cualquier comando, simplemente escribir su nombre:
 
 ```bash
 # Ejemplos de uso
-qa-agent
-build-agent  
-release-agent v1.5.0
-coverage-agent 80
-fix-agent all
-fix-coverage-agent 80
+qa-simple
+build-simple
+coverage-simple
+lint-simple
+test-simple
+ci-simple
 ```
 
-Los agentes son ejecutados secuencialmente y reportan progreso usando el sistema TodoWrite para tracking de tareas.
+Cada comando es autónomo y ejecuta una tarea específica. Para workflows más complejos, combinar comandos según necesidad.
+
+## Claude Code - Configuración Avanzada
+
+### Agentes Disponibles
+El proyecto incluye agentes especializados configurados para ejecutarse sin confirmaciones:
+- **qa-analyzer**: Análisis QA completo con validaciones estrictas
+- **coverage-analyzer**: Análisis detallado de cobertura de tests
+- **coverage-improver**: Mejora automática de cobertura de tests
+- **code-reviewer**: Revisión de código y mejores prácticas
+- **security-analyzer**: Análisis de seguridad y vulnerabilidades
+
+### Uso de Agentes
+```bash
+# Ejecutar análisis QA completo (recomendado antes de commits)
+qa-analyzer
+
+# Analizar cobertura de tests específicamente
+coverage-analyzer
+
+# Revisar código para mejores prácticas
+code-reviewer
+```
+
+### Configuración de Permisos
+La configuración en `.claude/settings.json` permite ejecución automática de comandos sin confirmación:
+- ✅ **50 reglas optimizadas** (vs 120+ anteriores)
+- ✅ **Wildcards extensos** para máxima cobertura
+- ✅ **Validaciones estrictas** en agentes
+
+### Troubleshooting
+```bash
+# Diagnosticar problemas de configuración
+/doctor
+
+# Ver documentación completa
+cat .claude/CLAUDE_CODE_SETUP.md
+```
+
+**Ver documentación completa**: [`.claude/CLAUDE_CODE_SETUP.md`](.claude/CLAUDE_CODE_SETUP.md)
