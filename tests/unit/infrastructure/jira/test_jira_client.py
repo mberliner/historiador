@@ -706,6 +706,355 @@ class TestCreateUserStory:
                     # Verify story was deleted
                     mock_delete.assert_called_once_with("TEST-127")
 
+    def test_create_user_story_rollback_delete_failure(self):
+        """Test rollback when deletion fails."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        settings.rollback_on_subtask_failure = True
+        client = JiraClient(settings)
+        
+        story = UserStory(
+            titulo="Test Story",
+            descripcion="Test Description", 
+            criterio_aceptacion="Test Criteria",
+            subtareas=["Failing subtask"]
+        )
+        
+        # Mock successful story creation
+        mock_response = Mock()
+        mock_response.json.return_value = {"key": "TEST-128"}
+        mock_response.raise_for_status.return_value = None
+        
+        with patch.object(client.session, 'post', return_value=mock_response):
+            with patch.object(client, '_create_subtasks') as mock_create_subtasks:
+                with patch.object(client, '_delete_issue') as mock_delete:
+                    with patch('src.infrastructure.jira.jira_client.logger') as mock_logger:
+                        # All subtasks fail and deletion also fails
+                        mock_create_subtasks.return_value = (0, 1, ["Subtask creation failed"])
+                        mock_delete.side_effect = Exception("Delete failed")
+                        
+                        result = client.create_user_story(story)
+                        
+                        # When deletion fails, the method logs error but continues to success path
+                        # This is the actual behavior - the story is still created successfully
+                        assert result.success is True
+                        assert result.jira_key == "TEST-128"
+                        assert result.subtasks_failed == 1
+                        
+                        # Verify deletion was attempted and error was logged
+                        mock_delete.assert_called_once_with("TEST-128")
+                        mock_logger.error.assert_called_with(
+                            "Error eliminando historia %s: %s", "TEST-128", "Delete failed"
+                        )
+
+    def test_create_user_story_with_story_required_fields_valid_json(self):
+        """Test story creation with valid story_required_fields JSON."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        settings.story_required_fields = '{"customfield_10001": "test_value", "priority": {"id": "1"}}'
+        client = JiraClient(settings)
+        
+        story = UserStory(
+            titulo="Test Story",
+            descripcion="Test Description",
+            criterio_aceptacion="Test Criteria"
+        )
+        
+        mock_response = Mock()
+        mock_response.json.return_value = {"key": "TEST-129"}
+        mock_response.raise_for_status.return_value = None
+        
+        with patch.object(client.session, 'post', return_value=mock_response) as mock_post:
+            with patch('src.infrastructure.jira.jira_client.logger') as mock_logger:
+                result = client.create_user_story(story)
+                
+                assert result.success is True
+                assert result.jira_key == "TEST-129"
+                
+                # Verify additional fields were added to payload
+                call_args = mock_post.call_args
+                payload = json.loads(call_args[1]['data'])
+                assert "customfield_10001" in payload["fields"]
+                assert payload["fields"]["customfield_10001"] == "test_value"
+                assert payload["fields"]["priority"] == {"id": "1"}
+                
+                # Verify debug log was called
+                mock_logger.debug.assert_any_call(
+                    "Campos obligatorios agregados para historia: %s",
+                    {"customfield_10001": "test_value", "priority": {"id": "1"}}
+                )
+
+    def test_create_user_story_with_story_required_fields_invalid_json(self):
+        """Test story creation with invalid story_required_fields JSON."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        settings.story_required_fields = 'invalid json{'
+        client = JiraClient(settings)
+        
+        story = UserStory(
+            titulo="Test Story",
+            descripcion="Test Description",
+            criterio_aceptacion="Test Criteria"
+        )
+        
+        mock_response = Mock()
+        mock_response.json.return_value = {"key": "TEST-130"}
+        mock_response.raise_for_status.return_value = None
+        
+        with patch.object(client.session, 'post', return_value=mock_response):
+            with patch('src.infrastructure.jira.jira_client.logger') as mock_logger:
+                result = client.create_user_story(story)
+                
+                assert result.success is True
+                assert result.jira_key == "TEST-130"
+                
+                # Verify warning was logged for invalid JSON
+                mock_logger.warning.assert_called()
+                warning_call = mock_logger.warning.call_args[0]
+                assert "Error parseando story_required_fields" in warning_call[0]
+
+    def test_create_user_story_http_error_different_status_codes(self):
+        """Test different HTTP error status codes."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        client = JiraClient(settings)
+        
+        story = UserStory(
+            titulo="Test Story",
+            descripcion="Test Description",
+            criterio_aceptacion="Test Criteria"
+        )
+        
+        # Test different error codes
+        test_cases = [
+            (400, "Error de validación en Jira (revisa los datos)"),
+            (403, "Sin permisos para crear historias en este proyecto"),
+            (404, "Proyecto o configuración no encontrada"),
+            (500, "Error de conexión con Jira (HTTP 500)")
+        ]
+        
+        for status_code, expected_message in test_cases:
+            mock_response = Mock()
+            mock_response.status_code = status_code
+            mock_response.json.return_value = {"errorMessages": ["API Error"]}
+            
+            http_error = requests.exceptions.HTTPError(f"HTTP {status_code}")
+            http_error.response = mock_response
+            
+            with patch.object(client.session, 'post') as mock_post:
+                mock_post.side_effect = http_error
+                
+                with patch('src.infrastructure.jira.jira_client.logger'):
+                    result = client.create_user_story(story, row_number=1)
+                    
+                    assert result.success is False
+                    assert expected_message in result.error_message
+                    assert result.row_number == 1
+
+    def test_create_user_story_http_error_with_json_response_details(self):
+        """Test HTTP error with JSON response details logging."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        client = JiraClient(settings)
+        
+        story = UserStory(
+            titulo="Test Story",
+            descripcion="Test Description",
+            criterio_aceptacion="Test Criteria"
+        )
+        
+        mock_response = Mock()
+        mock_response.status_code = 400
+        mock_response.json.return_value = {
+            "errorMessages": ["Summary is required"],
+            "errors": {"summary": "Summary is required"}
+        }
+        
+        http_error = requests.exceptions.HTTPError("Bad Request")
+        http_error.response = mock_response
+        
+        with patch.object(client.session, 'post') as mock_post:
+            mock_post.side_effect = http_error
+            
+            with patch('src.infrastructure.jira.jira_client.logger') as mock_logger:
+                result = client.create_user_story(story)
+                
+                assert result.success is False
+                
+                # Verify detailed error logging
+                mock_logger.error.assert_any_call("Error HTTP creando historia: %s", "Bad Request")
+                # Check that JSON details were logged
+                json_log_called = any(
+                    "Detalles del error:" in str(call) for call in mock_logger.error.call_args_list
+                )
+                assert json_log_called
+
+    def test_create_user_story_http_error_json_parse_failure(self):
+        """Test HTTP error when JSON parsing fails."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        client = JiraClient(settings)
+        
+        story = UserStory(
+            titulo="Test Story",
+            descripcion="Test Description",
+            criterio_aceptacion="Test Criteria"
+        )
+        
+        mock_response = Mock()
+        mock_response.status_code = 400
+        mock_response.text = "Invalid response format"
+        mock_response.json.side_effect = ValueError("No JSON object could be decoded")
+        
+        http_error = requests.exceptions.HTTPError("Bad Request")
+        http_error.response = mock_response
+        
+        with patch.object(client.session, 'post') as mock_post:
+            mock_post.side_effect = http_error
+            
+            with patch('src.infrastructure.jira.jira_client.logger') as mock_logger:
+                result = client.create_user_story(story)
+                
+                assert result.success is False
+                
+                # Verify response text was logged when JSON parsing fails
+                mock_logger.error.assert_any_call("Response text: %s", "Invalid response format")
+
+    def test_create_user_story_general_exception_with_payload_logging(self):
+        """Test general exception with payload logging."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        client = JiraClient(settings)
+        
+        story = UserStory(
+            titulo="Test Story",
+            descripcion="Test Description",
+            criterio_aceptacion="Test Criteria"
+        )
+        
+        with patch.object(client.session, 'post') as mock_post:
+            mock_post.side_effect = Exception("Unexpected error")
+            
+            with patch('src.infrastructure.jira.jira_client.logger') as mock_logger:
+                result = client.create_user_story(story, row_number=5)
+                
+                assert result.success is False
+                assert result.error_message == "Error inesperado creando historia"
+                assert result.row_number == 5
+                
+                # Verify complete error logging
+                mock_logger.error.assert_any_call("Error creando historia: %s", "Unexpected error")
+                # Verify payload was logged
+                payload_logged = any(
+                    "Payload enviado:" in str(call) for call in mock_logger.error.call_args_list
+                )
+                assert payload_logged
+
+
+class TestCreateUserStoryEdgeCases:
+    """Additional edge case tests for create_user_story."""
+
+    def test_create_user_story_with_multiple_acceptance_criteria_in_description(self):
+        """Test story creation with multiple acceptance criteria in description when no custom field."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        settings.acceptance_criteria_field = None  # No custom field
+        client = JiraClient(settings)
+        
+        story = UserStory(
+            titulo="Test Story",
+            descripcion="Test Description",
+            criterio_aceptacion=["Criteria 1", "Criteria 2", "Criteria 3"]  # Multiple criteria
+        )
+        
+        mock_response = Mock()
+        mock_response.json.return_value = {"key": "TEST-131"}
+        mock_response.raise_for_status.return_value = None
+        
+        with patch.object(client.session, 'post', return_value=mock_response) as mock_post:
+            result = client.create_user_story(story)
+            
+            assert result.success is True
+            
+            # Verify criteria were added to description as bullet points
+            call_args = mock_post.call_args
+            payload = json.loads(call_args[1]['data'])
+            description_content = payload["fields"]["description"]["content"]
+            
+            # Should have: description + separator + 3 bullet points
+            assert len(description_content) >= 5  # description + separator + 3 criteria
+            
+            # Check for separator
+            separator_found = any(
+                "Criterios de Aceptación" in str(content.get("content", []))
+                for content in description_content
+            )
+            assert separator_found
+            
+            # Check for bullet points
+            bullet_points = [content for content in description_content 
+                           if any("• Criteria" in str(item.get("text", "")) 
+                                 for item in content.get("content", []))]
+            assert len(bullet_points) == 3
+
+    def test_create_user_story_with_single_acceptance_criteria_in_description(self):
+        """Test story creation with single acceptance criteria in description."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        settings.acceptance_criteria_field = None  # No custom field
+        client = JiraClient(settings)
+        
+        story = UserStory(
+            titulo="Test Story",
+            descripcion="Test Description",
+            criterio_aceptacion=["Single criteria"]  # Single criteria as list
+        )
+        
+        mock_response = Mock()
+        mock_response.json.return_value = {"key": "TEST-132"}
+        mock_response.raise_for_status.return_value = None
+        
+        with patch.object(client.session, 'post', return_value=mock_response) as mock_post:
+            result = client.create_user_story(story)
+            
+            assert result.success is True
+            
+            # Verify single criteria was added as plain text
+            call_args = mock_post.call_args
+            payload = json.loads(call_args[1]['data'])
+            description_content = payload["fields"]["description"]["content"]
+            
+            # Should have: description + separator + single criteria (not as bullet)
+            assert len(description_content) >= 3
+            
+            # Check for plain text criteria (not bullet point)
+            criteria_text_found = any(
+                "Single criteria" in str(content.get("content", []))
+                for content in description_content
+            )
+            assert criteria_text_found
+
+    def test_create_user_story_with_empty_acceptance_criteria_list(self):
+        """Test story creation with empty acceptance criteria list."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        settings.acceptance_criteria_field = None
+        client = JiraClient(settings)
+        
+        story = UserStory(
+            titulo="Test Story",
+            descripcion="Test Description",
+            criterio_aceptacion=[]  # Empty list
+        )
+        
+        mock_response = Mock()
+        mock_response.json.return_value = {"key": "TEST-133"}
+        mock_response.raise_for_status.return_value = None
+        
+        with patch.object(client.session, 'post', return_value=mock_response) as mock_post:
+            result = client.create_user_story(story)
+            
+            assert result.success is True
+            
+            # Verify only description content (no criteria section)
+            call_args = mock_post.call_args
+            payload = json.loads(call_args[1]['data'])
+            description_content = payload["fields"]["description"]["content"]
+            
+            # Should only have the main description paragraph
+            assert len(description_content) == 1
+            assert "Test Description" in str(description_content[0])
+
 
 class TestCreateSubtasks:
     """Test _create_subtasks method."""
@@ -1094,6 +1443,295 @@ class TestJiraClientCoverageEdgeCases:
                 assert result.jira_key == 'TEST-123'
                 # Verify the call was made
                 client.session.post.assert_called_once()
+
+
+class TestValidateIssueType:
+    """Test validate_issue_type method comprehensively."""
+
+    def test_validate_issue_type_exact_match(self):
+        """Test successful validation with exact match."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        client = JiraClient(settings)
+        
+        # Mock API response with issue types
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = {
+            "projects": [{
+                "issuetypes": [
+                    {"id": "1", "name": "Story", "subtask": False},
+                    {"id": "2", "name": "Task", "subtask": False}
+                ]
+            }]
+        }
+        
+        with patch.object(client.session, 'get', return_value=mock_response):
+            result = client.validate_issue_type("Story")
+            
+            assert result is True
+            # Verify API call was made correctly
+            client.session.get.assert_called_once_with(
+                f"{client.base_url}/rest/api/3/issue/createmeta",
+                params={"projectKeys": settings.project_key, "expand": "projects.issuetypes"}
+            )
+
+    def test_validate_issue_type_case_insensitive(self):
+        """Test validation is case insensitive."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        client = JiraClient(settings)
+        
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = {
+            "projects": [{
+                "issuetypes": [
+                    {"id": "1", "name": "Story", "subtask": False}
+                ]
+            }]
+        }
+        
+        with patch.object(client.session, 'get', return_value=mock_response):
+            # Test different cases
+            assert client.validate_issue_type("story") is True
+            assert client.validate_issue_type("STORY") is True
+            assert client.validate_issue_type("Story") is True
+
+    def test_validate_issue_type_alias_mapping_story_to_historia(self):
+        """Test alias mapping from Story to Historia."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        client = JiraClient(settings)
+        
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = {
+            "projects": [{
+                "issuetypes": [
+                    {"id": "1", "name": "Historia", "subtask": False},
+                    {"id": "2", "name": "Task", "subtask": False}
+                ]
+            }]
+        }
+        
+        with patch.object(client.session, 'get', return_value=mock_response):
+            with patch('src.infrastructure.jira.jira_client.logger') as mock_logger:
+                result = client.validate_issue_type("Story")
+                
+                assert result is True
+                # Verify alias was detected and logged (check that the call was made)
+                alias_log_calls = [call for call in mock_logger.info.call_args_list 
+                                  if "Tipo de issue encontrado por alias" in str(call)]
+                assert len(alias_log_calls) >= 1
+
+    def test_validate_issue_type_alias_mapping_historia_to_story(self):
+        """Test alias mapping from Historia to Story."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        client = JiraClient(settings)
+        
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = {
+            "projects": [{
+                "issuetypes": [
+                    {"id": "1", "name": "Story", "subtask": False}
+                ]
+            }]
+        }
+        
+        with patch.object(client.session, 'get', return_value=mock_response):
+            result = client.validate_issue_type("Historia")
+            assert result is True
+
+    def test_validate_issue_type_bug_aliases(self):
+        """Test bug and error aliases."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        client = JiraClient(settings)
+        
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = {
+            "projects": [{
+                "issuetypes": [
+                    {"id": "1", "name": "Error", "subtask": False}
+                ]
+            }]
+        }
+        
+        with patch.object(client.session, 'get', return_value=mock_response):
+            assert client.validate_issue_type("Bug") is True
+            assert client.validate_issue_type("bug") is True
+
+    def test_validate_issue_type_settings_update_for_default_issue_type(self):
+        """Test that settings are updated when default_issue_type finds alias."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        settings.default_issue_type = "Story"
+        client = JiraClient(settings)
+        
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = {
+            "projects": [{
+                "issuetypes": [
+                    {"id": "1", "name": "Historia", "subtask": False}
+                ]
+            }]
+        }
+        
+        with patch.object(client.session, 'get', return_value=mock_response):
+            with patch('src.infrastructure.jira.jira_client.logger') as mock_logger:
+                result = client.validate_issue_type("Story")
+                
+                assert result is True
+                # Verify settings were updated
+                assert client.settings.default_issue_type == "Historia"
+                mock_logger.info.assert_any_call(
+                    "🔄 Actualizando configuración: %s -> %s",
+                    "Story", "Historia"
+                )
+
+    def test_validate_issue_type_no_projects_found(self):
+        """Test when no projects are found in response."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        client = JiraClient(settings)
+        
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = {"projects": []}
+        
+        with patch.object(client.session, 'get', return_value=mock_response):
+            result = client.validate_issue_type("Story")
+            assert result is False
+
+    def test_validate_issue_type_empty_projects_list(self):
+        """Test when projects list is empty."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        client = JiraClient(settings)
+        
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = {"projects": []}
+        
+        with patch.object(client.session, 'get', return_value=mock_response):
+            result = client.validate_issue_type("Story")
+            assert result is False
+
+    def test_validate_issue_type_issue_not_found_logs_available_types(self):
+        """Test that available types are logged when issue type not found."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        client = JiraClient(settings)
+        
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = {
+            "projects": [{
+                "issuetypes": [
+                    {"id": "1", "name": "Task", "subtask": False},
+                    {"id": "2", "name": "Bug", "subtask": False},
+                    {"id": "3", "name": "Subtarea", "subtask": True}  # Should be excluded from available types
+                ]
+            }]
+        }
+        
+        with patch.object(client.session, 'get', return_value=mock_response):
+            with patch('src.infrastructure.jira.jira_client.logger') as mock_logger:
+                result = client.validate_issue_type("Story")
+                
+                assert result is False
+                # Verify available types were logged (excluding subtasks)
+                mock_logger.debug.assert_any_call(
+                    "Validación fallida: tipo de issue '%s' no encontrado. Tipos estándar disponibles: %s",
+                    "Story", ["Task", "Bug"]
+                )
+
+    def test_validate_issue_type_http_error(self):
+        """Test handling of HTTP errors."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        client = JiraClient(settings)
+        
+        with patch.object(client.session, 'get') as mock_get:
+            mock_get.side_effect = requests.exceptions.HTTPError("403 Forbidden")
+            
+            with patch('src.infrastructure.jira.jira_client.logger') as mock_logger:
+                result = client.validate_issue_type("Story")
+                
+                assert result is False
+                mock_logger.error.assert_called_with(
+                    "Error validando tipo de issue %s: %s", "Story", "403 Forbidden"
+                )
+                mock_logger.debug.assert_called_with(
+                    "Excepción completa al validar tipo de issue:", exc_info=True
+                )
+
+    def test_validate_issue_type_connection_error(self):
+        """Test handling of connection errors."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        client = JiraClient(settings)
+        
+        with patch.object(client.session, 'get') as mock_get:
+            mock_get.side_effect = requests.exceptions.ConnectionError("Network unreachable")
+            
+            with patch('src.infrastructure.jira.jira_client.logger') as mock_logger:
+                result = client.validate_issue_type("Story")
+                
+                assert result is False
+                mock_logger.error.assert_called_with(
+                    "Error validando tipo de issue %s: %s", "Story", "Network unreachable"
+                )
+
+    def test_validate_issue_type_json_decode_error(self):
+        """Test handling of JSON decode errors."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        client = JiraClient(settings)
+        
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.side_effect = ValueError("Invalid JSON")
+        
+        with patch.object(client.session, 'get', return_value=mock_response):
+            with patch('src.infrastructure.jira.jira_client.logger') as mock_logger:
+                result = client.validate_issue_type("Story")
+                
+                assert result is False
+                mock_logger.error.assert_called_with(
+                    "Error validando tipo de issue %s: %s", "Story", "Invalid JSON"
+                )
+
+    def test_validate_issue_type_debug_logging(self):
+        """Test comprehensive debug logging."""
+        settings = Settings(_env_file=str(TEST_ENV_FILE))
+        client = JiraClient(settings)
+        
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = {
+            "projects": [{
+                "name": "Test Project",
+                "issuetypes": [
+                    {"id": "1", "name": "Story", "subtask": False}
+                ]
+            }]
+        }
+        
+        with patch.object(client.session, 'get', return_value=mock_response):
+            with patch('src.infrastructure.jira.jira_client.logger') as mock_logger:
+                result = client.validate_issue_type("Story")
+                
+                assert result is True
+                # Verify comprehensive debug logging
+                mock_logger.debug.assert_any_call(
+                    "Validando tipo de issue: %s en proyecto %s",
+                    "Story", settings.project_key
+                )
+                mock_logger.debug.assert_any_call(
+                    "Proyecto encontrado: %s, tipos de issue disponibles: %d",
+                    "Test Project", 1
+                )
+                mock_logger.debug.assert_any_call(
+                    "Comparando '%s' con '%s'", "Story", "Story"
+                )
+                mock_logger.debug.assert_any_call(
+                    "Tipo de issue validado exitosamente (exacto): %s (id: %s)",
+                    "Story", "1"
+                )
 
 
 class TestJiraClientIntegration:
