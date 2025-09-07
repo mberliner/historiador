@@ -65,7 +65,14 @@ For each prioritized gap, automatically create tests following these principles:
 - Execute tests after each batch of additions
 - Measure coverage improvement and validate test quality
 - Stop when threshold reached or diminishing returns detected
-- Ensure all new tests pass without breaking existing tests
+- **CRITICAL**: Ensure all new tests pass without breaking existing tests
+
+**MANDATORY TEST VALIDATION PROTOCOL:**
+- Run `pytest tests/unit/ -v` after EVERY test addition
+- If ANY test fails, immediately stop and fix before continuing
+- Run coverage report to verify actual improvement
+- Only proceed when ALL tests pass (451+ passing, 0 failing)
+- Any broken test is a CRITICAL FAILURE requiring immediate attention
 
 **Test Quality Standards:**
 - **Readable**: Clear test names describing scenarios (test_validate_titulo_required)
@@ -100,10 +107,18 @@ Use TodoWrite to track test generation progress:
 **Success Criteria:**
 - Coverage reaches specified threshold (default: 80%)
 - All generated tests follow project patterns and conventions
-- All tests (new and existing) pass without failures
+- **ALL tests (new and existing) pass without failures - NON-NEGOTIABLE**
 - Generated tests provide meaningful coverage of business logic
 - Clear documentation of coverage improvements achieved
 - Tests integrate seamlessly with existing test suite
+- Zero broken tests tolerance - any failure is unacceptable
+
+**FAILURE PREVENTION PROTOCOL:**
+- Test imports and syntax before writing test files
+- Validate mock usage matches existing patterns exactly  
+- Check for proper setUp/tearDown and fixture usage
+- Verify test isolation and independence
+- Use exact same assertion patterns as existing tests
 
 **Failure Handling:**
 - If threshold cannot be reached, report maximum achievable coverage

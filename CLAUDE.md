@@ -421,6 +421,12 @@ pylint src/ --output-format=text
 pytest tests/unit/ -v
 ```
 
+### test-validation-simple
+**Propósito**: Validación completa pre-agente (OBLIGATORIO antes de coverage-improver)
+```bash
+pytest tests/unit/ -v --tb=short && echo "✅ SAFE TO USE coverage-improver" || echo "❌ FIX TESTS BEFORE coverage-improver"
+```
+
 ### ci-simple
 **Propósito**: Simulación completa del pipeline de CI/CD
 ```bash
@@ -461,9 +467,20 @@ qa-analyzer
 # Analizar cobertura de tests específicamente
 coverage-analyzer
 
+# Mejorar cobertura automáticamente (CON VALIDACIÓN ESTRICTA)
+coverage-improver 85  # Solo si todos los tests actuales pasan
+
 # Revisar código para mejores prácticas
 code-reviewer
 ```
+
+### REGLAS CRÍTICAS PARA AGENTES
+
+#### coverage-improver - VALIDACIÓN OBLIGATORIA
+- **ANTES DE USAR**: Verificar que todos los tests pasan (`pytest tests/unit/ -q`)
+- **DURANTE**: Validación automática después de cada test agregado
+- **TOLERANCIA**: CERO tests rotos - cualquier falla es crítica
+- **PROCESO**: Stop inmediato si algún test falla, reparar antes de continuar
 
 ### Configuración de Permisos
 La configuración en `.claude/settings.json` permite ejecución automática de comandos sin confirmación:

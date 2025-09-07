@@ -24,6 +24,8 @@
       "Bash(test:*)",
       "Bash(file:*)",
       "Bash(du:*)",
+      "Bash(coverage:*)",
+      "Bash(python -m coverage:*)",
       
       "Python -m pylint:*",
       "Python -m pytest:*", 
@@ -45,6 +47,8 @@
       "Test:*",
       "File:*",
       "Du:*",
+      "Coverage:*",
+      "Python -m coverage:*",
       "Pyinstaller:*",
       "Pip install:*"
     ],
