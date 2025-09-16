@@ -494,7 +494,7 @@ class FeatureManager:
         logger.error("Falló creación de feature para: %s", parent_text[:50])
         return None, False
 
-    def _generate_feature_title(self, description: str, max_length: int = 60) -> str:
+    def _generate_feature_title(self, description: str, max_length: int = 120) -> str:
         """Genera un título para la feature basado en su descripción.
 
         Args:
