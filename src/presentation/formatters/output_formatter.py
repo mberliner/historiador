@@ -68,19 +68,22 @@ class OutputFormatter:
         click.echo(f"RESUMEN DEL ARCHIVO: {file_name}")
         click.echo(f"{'-'*70}")
 
-        # Contar features creadas/usadas y subtareas
-        features_created = 0
-        features_used = 0
+        # Contar features únicas creadas/usadas y subtareas
+        features_created_set = set()
+        features_used_set = set()
         total_subtasks = 0
 
         for result in batch_result.results:
             if result.success and result.feature_info:
                 if result.feature_info.was_created:
-                    features_created += 1
+                    features_created_set.add(result.feature_info.feature_key)
                 else:
-                    features_used += 1
+                    features_used_set.add(result.feature_info.feature_key)
             if result.success:
                 total_subtasks += result.subtasks_created
+
+        features_created = len(features_created_set)
+        features_used = len(features_used_set)
 
         click.echo("Historias de Usuario:")
         click.echo(f"  - Creadas: {batch_result.successful}")
@@ -128,19 +131,22 @@ class OutputFormatter:
         click.echo("RESUMEN FINAL DE PROCESAMIENTO")
         click.echo(f"{'='*70}")
 
-        # Contar totales
-        total_features_created = 0
-        total_features_used = 0
+        # Contar features únicas y subtareas totales
+        total_features_created_set = set()
+        total_features_used_set = set()
         total_subtasks = 0
 
         for result in overall_result.results:
             if result.success and result.feature_info:
                 if result.feature_info.was_created:
-                    total_features_created += 1
+                    total_features_created_set.add(result.feature_info.feature_key)
                 else:
-                    total_features_used += 1
+                    total_features_used_set.add(result.feature_info.feature_key)
             if result.success:
                 total_subtasks += result.subtasks_created
+
+        total_features_created = len(total_features_created_set)
+        total_features_used = len(total_features_used_set)
 
         click.echo(f"Archivos procesados: {total_files}")
         click.echo("\nHistorias de Usuario:")
