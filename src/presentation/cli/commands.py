@@ -291,7 +291,7 @@ def process_command(file, project, dry_run, log_level):
         else:
             files_to_process = process_use_case.find_input_files()
             if not files_to_process:
-                formatter.print_error(
+                formatter.print_warning(
                     f"No se encontraron archivos CSV/Excel en {settings.input_directory}"
                 )
                 return
@@ -360,7 +360,8 @@ def test_connection_command():
 )
 def diagnose_command(project, log_level):
     """Diagnostica configuración y campos obligatorios para historias y features."""
-    from src.application.use_cases.diagnose_features import DiagnoseFeaturesUseCase
+    from src.application.use_cases.diagnose_features import \
+        DiagnoseFeaturesUseCase
     from src.presentation.formatters.output_formatter import OutputFormatter
 
     # Configurar logging

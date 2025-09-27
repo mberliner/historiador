@@ -17,11 +17,20 @@ python src/main.py process -f entrada/archivo.csv -p PROJECT_KEY
 # Validar archivo sin crear issues
 python src/main.py validate -f entrada/archivo.csv
 
+# Validar archivo mostrando solo 3 filas de preview
+python src/main.py validate -f entrada/archivo.csv -r 3
+
 # Diagnosticar campos obligatorios para features que existan en Jira
 python src/main.py diagnose -p PROJECT_KEY
 
 # Modo dry-run para pruebas, no modifica en Jira
 python src/main.py -p PROJECT_KEY --dry-run
+
+# Control de logging detallado (DEBUG, INFO, WARNING, ERROR)
+python src/main.py --log-level DEBUG -p PROJECT_KEY --dry-run
+
+# Procesar archivo específico con logging detallado
+python src/main.py process -f entrada/archivo.csv -p PROJECT_KEY --log-level INFO
 
 # Generar ejecutable optimizado (RECOMENDADO: ~51MB)
 pyinstaller historiador-clean.spec --clean
@@ -115,6 +124,30 @@ SUBTASK_ISSUE_TYPE=Subtarea
 FEATURE_ISSUE_TYPE=Feature
 ROLLBACK_ON_SUBTASK_FAILURE=false
 ACCEPTANCE_CRITERIA_FIELD=customfield_10001
+```
+
+## Sistema de Logging
+### Niveles Disponibles
+- **DEBUG**: Información técnica detallada, llamadas a API, debugging
+- **INFO**: Progreso normal, operaciones exitosas (default)
+- **WARNING**: Situaciones recuperables, alertas
+- **ERROR**: Errores críticos, fallos de conexión
+
+### Configuración de Logs
+- **Archivo**: Los logs técnicos se escriben en `logs/jira_batch.log`
+- **Consola**: Solo salida user-friendly via OutputFormatter
+- **Rotación**: Manual (archivo se sobrescribe en cada ejecución)
+
+### Ejemplos de Uso
+```bash
+# Debugging completo para desarrollo
+python src/main.py --log-level DEBUG diagnose -p PROJECT_KEY
+
+# Información normal para producción
+python src/main.py --log-level INFO process -f archivo.csv -p PROJ
+
+# Solo errores críticos
+python src/main.py --log-level ERROR --dry-run
 ```
 
 ## Configuración Interactiva

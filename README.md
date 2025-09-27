@@ -40,6 +40,9 @@ pyinstaller historiador-clean.spec --clean
 # Valida archivo sin crear nada en Jira
 ./historiador validate -f entrada/archivo.csv
 
+# Valida archivo mostrando solo 3 filas de preview
+./historiador validate -f entrada/archivo.csv -r 3
+
 # Diagnostica campos obligatorios del proyecto
 ./historiador diagnose -p PROYECTO_KEY
 
@@ -54,6 +57,18 @@ pyinstaller historiador-clean.spec --clean
 
 # Modo dry-run para archivo específico
 ./historiador process -f entrada/archivo.csv -p PROYECTO_KEY --dry-run
+
+# Procesar con archivo específico desde comando raíz
+./historiador -f entrada/archivo.csv -p PROYECTO_KEY --dry-run
+```
+
+### Opciones Avanzadas
+```bash
+# Control de logging (DEBUG, INFO, WARNING, ERROR)
+./historiador --log-level DEBUG
+
+# Combinar múltiples opciones
+./historiador process -f archivo.csv -p PROJ --dry-run --log-level INFO
 ```
 
 ## 📋 Formato de Archivo
