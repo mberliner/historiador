@@ -531,3 +531,63 @@ cat .claude/CLAUDE_CODE_SETUP.md
 ```
 
 **Ver documentación completa**: [`.claude/CLAUDE_CODE_SETUP.md`](.claude/CLAUDE_CODE_SETUP.md)
+
+## Gestión de Changelog
+
+El proyecto mantiene un changelog detallado siguiendo las mejores prácticas de [Keep a Changelog](https://keepachangelog.com/).
+
+### Estructura del Changelog
+- **Formato**: Markdown estándar con categorías claras
+- **Orden**: Cronológico descendente (más reciente primero)
+- **Fuente**: Datos reales extraídos de tags y commits de git
+- **Ubicación**: `/CHANGELOG.md`
+
+### Categorías de Cambios
+- 🎉 **Added**: Nuevas funcionalidades
+- 🔧 **Changed**: Cambios en funcionalidad existente
+- 🐛 **Fixed**: Correcciones de bugs
+- 🗑️ **Removed**: Funcionalidades eliminadas
+- 🔒 **Security**: Correcciones de seguridad
+- ⚡ **Performance**: Mejoras de rendimiento
+
+### Criterios de Inclusión
+**✅ Incluir**: Cambios visibles al usuario, nuevas funcionalidades, correcciones importantes, cambios en configuración
+**❌ No incluir**: Refactoring interno, cambios en tests, documentación menor, configuración CI/CD
+
+### Comandos para Mantener Changelog
+```bash
+# Ver historial de tags por versión
+git tag --sort=-version:refname
+
+# Ver cambios entre dos versiones
+git log --oneline v0.10.0..v0.11.1
+
+# Ver información de un tag específico
+git show v0.11.1 --format="%ci %s" --no-patch
+
+# Ver cambios desde último tag liberado
+git log --oneline v0.11.1..HEAD
+```
+
+### Proceso de Release
+1. **Preparar cambios**: Implementar y testear funcionalidades
+2. **Actualizar changelog**: Agregar nueva sección con cambios
+3. **Crear tag**: `git tag v0.12.0 && git push origin v0.12.0`
+4. **Verificar**: Confirmar que el changelog refleja correctamente los cambios
+
+### Versionado Semántico
+- **MAJOR** (x.0.0): Cambios incompatibles en API
+- **MINOR** (0.x.0): Nueva funcionalidad compatible hacia atrás
+- **PATCH** (0.0.x): Correcciones de bugs compatibles
+
+### Ejemplo de Entrada
+```markdown
+## [0.12.0] - 2025-10-01
+
+### 🎉 Added
+- Nueva funcionalidad de exportación a múltiples formatos
+- Soporte para templates personalizados
+
+### 🐛 Fixed
+- Corrección en validación de campos especiales
+```
