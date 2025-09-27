@@ -2,6 +2,14 @@
 # Triggers: Push a master + Merge Requests + Tags
 workflow:
   rules:
+    # Excluir cambios solo en documentación
+    - changes:
+        - "**.md"
+        - "docs/**"
+        - ".gitignore"
+        - "LICENSE"
+      when: never
+    # Incluir otros casos
     - if: $CI_COMMIT_BRANCH == "master"
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
