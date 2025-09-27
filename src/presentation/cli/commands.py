@@ -223,7 +223,6 @@ def _create_env_file(env_values):
         [
             "",
             "# Configuración de la aplicación",
-            "BATCH_SIZE=10",
             "DRY_RUN=false",
             "ROLLBACK_ON_SUBTASK_FAILURE=true",
             "",
@@ -262,14 +261,13 @@ def setup_logging(settings: Settings, level: str = "INFO"):
 @click.command()
 @click.option("--file", "-f", help="Archivo Excel o CSV específico con las historias")
 @click.option("--project", "-p", help="Key del proyecto en Jira (ej: MYPROJ)")
-@click.option("--batch-size", "-b", default=10, help="Tamaño del lote de procesamiento")
 @click.option("--dry-run", is_flag=True, help="Modo de prueba sin crear issues")
 @click.option(
     "--log-level",
     default="INFO",
     type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
 )
-def process_command(file, project, batch_size, dry_run, log_level):
+def process_command(file, project, dry_run, log_level):
     """Procesa archivo(s) y crea historias de usuario en Jira."""
     from src.application.use_cases.process_files import ProcessFilesUseCase
     from src.presentation.formatters.output_formatter import OutputFormatter
@@ -280,7 +278,6 @@ def process_command(file, project, batch_size, dry_run, log_level):
         settings.project_key = project
     if dry_run:
         settings.dry_run = True
-    settings.batch_size = batch_size
 
     setup_logging(settings, log_level)
 
@@ -363,8 +360,7 @@ def test_connection_command():
 )
 def diagnose_command(project, log_level):
     """Diagnostica configuración y campos obligatorios para historias y features."""
-    from src.application.use_cases.diagnose_features import \
-        DiagnoseFeaturesUseCase
+    from src.application.use_cases.diagnose_features import DiagnoseFeaturesUseCase
     from src.presentation.formatters.output_formatter import OutputFormatter
 
     # Configurar logging

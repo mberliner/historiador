@@ -36,7 +36,6 @@ def sample_settings(temp_dir):
         default_issue_type="Story",
         subtask_issue_type="Subtarea",
         feature_issue_type="Feature",
-        batch_size=5,
         dry_run=False,
         input_directory=str(temp_dir / "entrada"),
         logs_directory=str(temp_dir / "logs"),

@@ -97,7 +97,6 @@ class ProcessFilesUseCase:
         """Procesa un único archivo."""
         results: List[ProcessResult] = []
         stories = []  # Para almacenar las historias
-        batch_count = 0
 
         for row_number, story in enumerate(
             self.file_processor.process_file(file_path), start=1
@@ -105,11 +104,6 @@ class ProcessFilesUseCase:
             result = self.jira_client.create_user_story(story, row_number)
             results.append(result)
             stories.append(story)  # Guardar story para mostrar título después
-
-            batch_count += 1
-            if batch_count >= self.settings.batch_size:
-                logger.info(f"Lote completado. Procesadas {len(results)} historias...")
-                batch_count = 0
 
         batch_result = BatchResult(
             total_processed=len(results),

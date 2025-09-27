@@ -21,7 +21,6 @@ class Settings(BaseSettings):
     subtask_issue_type: str = Field(
         default="Sub-task", description="Tipo de issue para subtareas"
     )
-    batch_size: int = Field(default=10, description="Tamaño del lote de procesamiento")
     dry_run: bool = Field(default=False, description="Modo de prueba sin crear issues")
     acceptance_criteria_field: Optional[str] = Field(
         default=None,

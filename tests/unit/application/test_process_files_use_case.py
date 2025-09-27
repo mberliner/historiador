@@ -259,32 +259,7 @@ class TestProcessSingleFile:
         with pytest.raises(ValueError):
             use_case.process_single_file("invalid.csv")
 
-    @patch('src.application.use_cases.process_files.JiraClient')
-    @patch('src.application.use_cases.process_files.FileProcessor')
-    def test_process_single_file_batch_processing(self, mock_file_processor, mock_jira_client, sample_settings):
-        """Test single file processing with batch size."""
-        sample_settings.batch_size = 2
-        
-        # Create 5 stories to test batching
-        stories = [
-            UserStory(titulo=f"Test {i}", descripcion=f"Desc {i}", criterio_aceptacion=f"Crit {i}")
-            for i in range(1, 6)
-        ]
-        
-        mock_fp_instance = Mock()
-        mock_fp_instance.process_file.return_value = stories
-        mock_file_processor.return_value = mock_fp_instance
-        
-        mock_jc_instance = Mock()
-        mock_jc_instance.create_user_story.return_value = ProcessResult(success=True, jira_key="PROJ-X")
-        mock_jira_client.return_value = mock_jc_instance
-        
-        use_case = ProcessFilesUseCase(sample_settings)
-        result = use_case.process_single_file("test.csv")
-        
-        assert result.total_processed == 5
-        # Verify create_user_story was called 5 times (once for each story)
-        assert mock_jc_instance.create_user_story.call_count == 5
+    # batch processing test removed
 
 
 class TestProcessFiles:
@@ -509,19 +484,6 @@ class TestEdgeCases:
         assert result.total_processed == 1
         assert result.successful == 0
         assert result.failed == 1
-
-    @patch('src.application.use_cases.process_files.JiraClient')
-    def test_execute_large_batch_size(self, mock_jira_client, sample_settings):
-        """Test processing with very large batch size."""
-        sample_settings.batch_size = 1000  # Very large batch
-        
-        mock_jc_instance = Mock()
-        mock_jira_client.return_value = mock_jc_instance
-        
-        use_case = ProcessFilesUseCase(sample_settings)
-        
-        # Should not raise any errors
-        assert use_case.settings.batch_size == 1000
 
     @patch('src.application.use_cases.process_files.JiraClient')
     def test_execute_multiple_files(self, mock_jira_client, sample_settings, temp_dir):

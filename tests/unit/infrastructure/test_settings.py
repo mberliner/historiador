@@ -28,7 +28,6 @@ class TestSettingsInit:
         # Check defaults from test file
         assert settings.default_issue_type == 'Story'
         assert settings.subtask_issue_type == 'Subtarea'
-        assert settings.batch_size == 10
         assert settings.dry_run is False
         assert settings.acceptance_criteria_field == ''  # Empty string in test file
         assert settings.input_directory == 'entrada'
@@ -47,7 +46,7 @@ class TestSettingsInit:
             'PROJECT_KEY': 'CUSTOM',
             'DEFAULT_ISSUE_TYPE': 'Task',
             'SUBTASK_ISSUE_TYPE': 'Subtarea',
-            'BATCH_SIZE': '25',
+            # batch_size removed
             'DRY_RUN': 'true',
             'ACCEPTANCE_CRITERIA_FIELD': 'customfield_10001',
             'INPUT_DIRECTORY': 'custom_input',
@@ -65,7 +64,6 @@ class TestSettingsInit:
             assert settings.project_key == 'CUSTOM'
             assert settings.default_issue_type == 'Task'
             assert settings.subtask_issue_type == 'Subtarea'
-            assert settings.batch_size == 25
             assert settings.dry_run is True
             assert settings.acceptance_criteria_field == 'customfield_10001'
             assert settings.input_directory == 'custom_input'
@@ -110,25 +108,7 @@ class TestSettingsInit:
 class TestSettingsTypes:
     """Test Settings type validation."""
 
-    def test_batch_size_validation(self):
-        """Test batch_size type validation."""
-        base_env = {
-            'JIRA_URL': 'https://test.atlassian.net',
-            'JIRA_EMAIL': 'test@example.com',
-            'JIRA_API_TOKEN': 'test-token',
-            'PROJECT_KEY': 'TEST'
-        }
-        
-        # Valid integer as string
-        with patch.dict(os.environ, {**base_env, 'BATCH_SIZE': '20'}):
-            settings = Settings()
-            assert settings.batch_size == 20
-            assert isinstance(settings.batch_size, int)
-        
-        # Invalid non-numeric string should raise error
-        with patch.dict(os.environ, {**base_env, 'BATCH_SIZE': 'invalid'}):
-            with pytest.raises(ValidationError):
-                Settings()
+    # batch_size validation tests removed
 
     def test_boolean_validation(self):
         """Test boolean field validation."""
@@ -202,7 +182,7 @@ JIRA_URL=https://envfile.atlassian.net
 JIRA_EMAIL=envfile@example.com
 JIRA_API_TOKEN=envfile-token
 PROJECT_KEY=ENVFILE
-BATCH_SIZE=15
+# BATCH_SIZE removed
 DRY_RUN=true
 """
         env_file.write_text(env_content.strip())
@@ -217,7 +197,6 @@ DRY_RUN=true
             assert settings.jira_email == 'envfile@example.com'
             assert settings.jira_api_token == 'envfile-token'
             assert settings.project_key == 'ENVFILE'
-            assert settings.batch_size == 15
             assert settings.dry_run is True
         finally:
             os.chdir(original_cwd)
@@ -231,7 +210,7 @@ JIRA_URL=https://file.atlassian.net
 JIRA_EMAIL=file@example.com
 JIRA_API_TOKEN=file-token
 PROJECT_KEY=FILE
-BATCH_SIZE=5
+# BATCH_SIZE removed
 """
         env_file.write_text(env_content.strip())
         
@@ -239,15 +218,13 @@ BATCH_SIZE=5
         original_cwd = os.getcwd()
         try:
             os.chdir(temp_dir)
-            with patch.dict(os.environ, {'BATCH_SIZE': '30'}):
-                settings = Settings()
-                
-                # These should come from file
-                assert settings.jira_url == 'https://file.atlassian.net'
-                assert settings.jira_email == 'file@example.com'
-                
-                # This should be overridden by environment variable
-                assert settings.batch_size == 30
+            settings = Settings()
+
+            # These should come from file
+            assert settings.jira_url == 'https://file.atlassian.net'
+            assert settings.jira_email == 'file@example.com'
+
+            # batch_size test removed
         finally:
             os.chdir(original_cwd)
 
@@ -271,20 +248,6 @@ class TestSettingsModification:
             
             assert original_project == 'TEST'
             assert settings.project_key == 'MODIFIED'
-
-    def test_modify_batch_size(self):
-        """Test modifying batch_size."""
-        with patch.dict(os.environ, {
-            'JIRA_URL': 'https://test.atlassian.net',
-            'JIRA_EMAIL': 'test@example.com',
-            'JIRA_API_TOKEN': 'test-token',
-            'PROJECT_KEY': 'TEST'
-        }):
-            settings = Settings()
-            
-            assert settings.batch_size == 10  # Default
-            settings.batch_size = 50
-            assert settings.batch_size == 50
 
     def test_modify_dry_run(self):
         """Test modifying dry_run mode."""
@@ -311,7 +274,6 @@ class TestSettingsDefaults:
         # Test all values from test file
         assert settings.default_issue_type == 'Story'
         assert settings.subtask_issue_type == 'Subtarea'
-        assert settings.batch_size == 10
         assert settings.dry_run is False
         assert settings.acceptance_criteria_field == ''  # Empty in test file
         assert settings.input_directory == 'entrada'
@@ -366,29 +328,6 @@ class TestSettingsValidation:
             settings = Settings(_env_file=None)
             assert settings.jira_url == '   '
 
-    def test_zero_batch_size(self):
-        """Test that zero batch size is allowed."""
-        with patch.dict(os.environ, {
-            'JIRA_URL': 'https://test.atlassian.net',
-            'JIRA_EMAIL': 'test@example.com',
-            'JIRA_API_TOKEN': 'test-token',
-            'PROJECT_KEY': 'TEST',
-            'BATCH_SIZE': '0'
-        }):
-            settings = Settings()
-            assert settings.batch_size == 0
-
-    def test_negative_batch_size(self):
-        """Test that negative batch size is allowed by pydantic."""
-        with patch.dict(os.environ, {
-            'JIRA_URL': 'https://test.atlassian.net',
-            'JIRA_EMAIL': 'test@example.com',
-            'JIRA_API_TOKEN': 'test-token',
-            'PROJECT_KEY': 'TEST',
-            'BATCH_SIZE': '-5'
-        }):
-            settings = Settings()
-            assert settings.batch_size == -5
 
 
 class TestSettingsEdgeCases:

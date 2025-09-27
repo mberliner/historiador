@@ -8,9 +8,12 @@ import click
 # Agregar el directorio padre al path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from src.presentation.cli.commands import (diagnose_command, process_command,
-                                           test_connection_command,
-                                           validate_command)
+from src.presentation.cli.commands import (
+    diagnose_command,
+    process_command,
+    test_connection_command,
+    validate_command,
+)
 
 
 @click.group(invoke_without_command=True)
@@ -21,10 +24,9 @@ from src.presentation.cli.commands import (diagnose_command, process_command,
 )
 @click.option("--file", "-f", help="Archivo Excel o CSV específico con las historias")
 @click.option("--project", "-p", help="Key del proyecto en Jira (ej: MYPROJ)")
-@click.option("--batch-size", "-b", default=10, help="Tamaño del lote de procesamiento")
 @click.option("--dry-run", is_flag=True, help="Modo de prueba sin crear issues")
 @click.pass_context
-def cli(ctx, log_level, file, project, batch_size, dry_run):
+def cli(ctx, log_level, file, project, dry_run):
     """Jira Batch Importer - Crea historias de usuario desde archivos Excel/CSV."""
     ctx.ensure_object(dict)
     ctx.obj["log_level"] = log_level
@@ -35,7 +37,6 @@ def cli(ctx, log_level, file, project, batch_size, dry_run):
             process_command,
             file=file,
             project=project,
-            batch_size=batch_size,
             dry_run=dry_run,
             log_level=log_level,
         )
