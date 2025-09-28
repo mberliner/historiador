@@ -300,7 +300,8 @@ release_job:
   release:
     tag_name: '$CI_COMMIT_TAG'
     name: 'Historiador $CI_COMMIT_TAG'
-    description_path: 'release_description.md'
+    description: |
+      $(cat release_description.md)
     assets:
       links:
         - name: 'historiador'
