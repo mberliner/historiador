@@ -7,26 +7,48 @@ y este proyecto adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
 ## [0.11.1] - 2025-09-27
 
+### 🎉 Added
+- **Notas de release dinámicas**: Los releases en GitHub y GitLab ahora extraen automáticamente el contenido del CHANGELOG.md
+- **Validación obligatoria de CHANGELOG**: Los workflows se detienen si falta documentación para el tag
+- **Agentes especializados Claude Code**: qa-analyzer, coverage-analyzer, coverage-improver, security-analyzer
+- **Configuración automatizada**: 50+ reglas de permisos optimizadas para desarrollo fluido
+- **Sistema de changelog estructurado**: Formato estandarizado para releases automáticos
+
 ### 🗑️ Removed
 - Eliminado parámetro `-b/--batch-size` por ser innecesario y confuso para usuarios
 - Removidos archivos de PyInstaller spec obsoletos (historiador.spec, pyinstaller_optimized.spec)
+- Limpieza de archivos de desarrollo obsoletos y documentación desactualizada
 
 ### 🔧 Changed
-- Mensaje de directorio vacío cambiado de ERROR a WARNING para mejor UX
-- Título de features limitado a 120 caracteres máximo
+- **CI/CD optimizado**: Cambios en documentación (*.md) ya no disparan pipelines innecesariamente
+- **Título de features**: Limitado a 120 caracteres máximo para mejor visualización en Jira
+- **Mensaje de directorio vacío**: Cambiado de ERROR a WARNING para mejor experiencia de usuario
+- **Releases automáticos**: Contenido dinámico extraído del CHANGELOG.md con validación previa
 - Documentación README y CLAUDE.md actualizadas para reflejar parámetros actuales
 
 ### 🐛 Fixed
-- Corrección en contador de features procesadas mostrado en pantalla
-- Formateo Black aplicado a imports para consistencia de código
+- **Contador de features**: Corrección en la visualización del progreso de features procesadas
+- **Estructura GitLab CI**: Corregida sintaxis YAML del job release_job para releases funcionales
+- **Formateo de código**: Aplicado Black e isort para consistencia en imports y formato
+- Validación estricta de agente coverage-improver para preservar tests existentes
 
 ### ⚡ Performance
-- Ejecutable optimizado mantenido en ~54MB con configuración limpia
-- Un solo archivo .spec activo para builds más simples
+- **Cobertura de tests mejorada**: Alcanzado 83% de test coverage con validaciones estrictas
+- **Ejecutable optimizado**: Mantenido en ~54MB con configuración limpia
+- **Build simplificado**: Un solo archivo .spec activo para builds más eficientes
+- Agentes de cobertura con respeto total a tests existentes
 
 ### 🔒 Security
-- Configuración de agentes de seguridad y reportes automáticos
-- Permisos de edición optimizados para entorno Claude Code
+- **Analizador de seguridad**: Configuración de reportes automáticos y agente especializado
+- **Permisos de edición**: Optimizados para entorno Claude Code sin comprometer seguridad
+- **Validación de agentes**: Sistema de checks para agentes de mejora de cobertura
+- Configuración de agentes con validación estricta de cambios
+
+### 📝 Detalles técnicos
+- Implementación de workflows GitHub Actions y GitLab CI con validación de CHANGELOG
+- Sistema de extracción automática de contenido entre tags usando comandos awk
+- Configuración de 50+ reglas de permisos para herramientas de desarrollo
+- Agentes especializados con validación estricta para preservar calidad del código
 
 ## [0.10.0] - 2025-08-30
 
