@@ -177,47 +177,10 @@ upload_package:
 release_job:
   stage: release
   image: registry.gitlab.com/gitlab-org/release-cli:latest
-  needs: 
+  needs:
     - upload_package
-  
+
   script:
-    - echo "Creating release for $CI_COMMIT_TAG"
-    
-  release:
-    tag_name: '$CI_COMMIT_TAG'
-    name: 'Historiador $CI_COMMIT_TAG'
-    description: |
-      ## 📦 Historiador $CI_COMMIT_TAG
-      
-      Ejecutable CLI optimizado para importar historias de usuario desde CSV/Excel a Jira.
-      
-      ### 🎯 Características de esta Versión
-      - **Tamaño optimizado**: 51MB (excluye herramientas de desarrollo)  
-      - **Compatibilidad**: Linux x64
-      - **Testeado en**: Python 3.8 y 3.13
-      - **Arquitectura**: Clean Architecture (4 capas)
-      
-      ### ✅ Quality Gates Validados
-      - **PyLint Score**: ≥8.0 (código de calidad)
-      - **Test Coverage**: ≥80% (cobertura de tests)  
-      - **Unit Tests**: Todos los tests pasando (366+ tests)
-      - **Build**: Ejecutable generado y validado
-      
-      ### 📋 Información del Pipeline
-      - **Commit**: `$CI_COMMIT_SHA`
-      - **Pipeline**: [$CI_PIPELINE_ID]($CI_PIPELINE_URL)
-      - **Fecha Build**: $CI_PIPELINE_CREATED_AT
-      - **Generado por**: GitLab CI/CD
-      
-      ### 🔧 Uso
-      ```bash
-      # Descargar y usar
-      chmod +x historiador
-      ./historiador --help
-      ./historiador -p TU_PROYECTO --dry-run
-      ```
-      
-      script:
     - echo "Creating release for $CI_COMMIT_TAG"
 
     # Validar que existe entrada en CHANGELOG.md
