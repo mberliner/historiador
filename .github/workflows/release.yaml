@@ -209,38 +209,137 @@ jobs:
           ls -la artifacts/
           find artifacts/ -type f -exec ls -la {} \;
 
+      - name: Validate changelog entry exists
+        id: validate_changelog
+        run: |
+          # Obtener el tag actual
+          CURRENT_TAG="${{ github.ref_name }}"
+          VERSION=${CURRENT_TAG#v}
+
+          echo "🔍 Validando entrada en CHANGELOG.md para versión: $VERSION"
+
+          # Verificar que existe la entrada en el changelog
+          if ! grep -q "^## \[$VERSION\]" CHANGELOG.md; then
+            echo "❌ ERROR: No se encontró entrada para la versión [$VERSION] en CHANGELOG.md"
+            echo ""
+            echo "📋 Acciones requeridas:"
+            echo "1. Agregar sección para la versión $VERSION en CHANGELOG.md"
+            echo "2. Seguir el formato: ## [$VERSION] - $(date +%Y-%m-%d)"
+            echo "3. Incluir categorías apropiadas (🎉 Added, 🔧 Changed, 🐛 Fixed, etc.)"
+            echo ""
+            echo "📖 Ejemplo:"
+            echo "## [$VERSION] - $(date +%Y-%m-%d)"
+            echo ""
+            echo "### 🎉 Added"
+            echo "- Nueva funcionalidad..."
+            echo ""
+            echo "### 🐛 Fixed"
+            echo "- Corrección de..."
+            echo ""
+            echo "Ver CHANGELOG.md para más ejemplos de formato."
+            echo ""
+            echo "💡 Tip: Asegúrate de que el tag $CURRENT_TAG corresponde a los cambios documentados"
+            exit 1
+          fi
+
+          # Verificar que hay contenido en la sección (no está vacía)
+          CHANGELOG_CONTENT=$(awk "/^## \[$VERSION\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md | sed '/^$/d')
+
+          if [ -z "$CHANGELOG_CONTENT" ]; then
+            echo "❌ ERROR: La sección [$VERSION] en CHANGELOG.md está vacía"
+            echo ""
+            echo "📋 Acción requerida:"
+            echo "- Agregar contenido descriptivo de los cambios en la versión $VERSION"
+            echo "- Usar categorías apropiadas (🎉 Added, 🔧 Changed, 🐛 Fixed, etc.)"
+            echo ""
+            echo "El release no puede continuar con una sección vacía."
+            exit 1
+          fi
+
+          echo "✅ Validación exitosa: Entrada encontrada para versión [$VERSION]"
+          echo "📝 Contenido del changelog validado correctamente"
+
+      - name: Extract changelog for release
+        id: changelog
+        run: |
+          # Obtener el tag actual (ya validado en el paso anterior)
+          CURRENT_TAG="${{ github.ref_name }}"
+          echo "current_tag=$CURRENT_TAG" >> $GITHUB_OUTPUT
+
+          # Obtener tag anterior
+          PREVIOUS_TAG=$(git tag --sort=-version:refname | head -2 | tail -1 || echo "")
+          echo "previous_tag=$PREVIOUS_TAG" >> $GITHUB_OUTPUT
+
+          # Extraer contenido del changelog para la versión actual
+          VERSION=${CURRENT_TAG#v}
+
+          # Buscar contenido de la versión actual en CHANGELOG.md (ya validado que existe)
+          CHANGELOG_CONTENT=$(awk "/^## \[$VERSION\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md | sed '/^$/d')
+
+          # Guardar en archivo temporal para el release
+          cat > changelog_content.txt << 'EOF'
+          $CHANGELOG_CONTENT
+          EOF
+
+          # Expandir variables en el contenido
+          eval "cat > changelog_final.txt << 'EOL'
+          $(cat changelog_content.txt)
+          EOL"
+
+          echo "📊 Estadísticas del changelog:"
+          echo "- Líneas de cambios: $(echo "$CHANGELOG_CONTENT" | wc -l)"
+          echo "- Categorías detectadas: $(echo "$CHANGELOG_CONTENT" | grep -c "^###" || echo "0")"
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }}
+          name: 'Historiador ${{ github.ref_name }}'
           draft: false
           prerelease: false
-          generate_release_notes: true
+          generate_release_notes: false
           body: |
-            ## 🚀 Historiador ${{ github.ref_name }}
-            
-            Aplicación de línea de comandos para importar historias de usuario desde CSV/Excel hacia Jira.
-            
+            ## 📦 Historiador ${{ github.ref_name }}
+
+            Ejecutable CLI optimizado para importar historias de usuario desde CSV/Excel a Jira.
+
+            ### 🚀 Cambios en esta versión
+
+            $(cat changelog_final.txt)
+
             ### 📥 Descargas
-            - **Linux**: ${{ env.LINUX_EXECUTABLE }}
-            - **Windows**: ${{ env.WINDOWS_EXECUTABLE }}
-            
-            ### ✅ Validación
-            Este release pasó todos los quality gates:
-            - PyLint score ≥ 8.0
-            - Test coverage ≥ 80%
-            - All unit tests passed
-            
-            ### 📖 Uso
+            - **Linux x64**: `${{ env.LINUX_EXECUTABLE }}` (~51MB optimizado)
+            - **Windows x64**: `${{ env.WINDOWS_EXECUTABLE }}` (~53MB optimizado)
+
+            ### ✅ Quality Gates Validados
+            - **PyLint Score**: ≥8.0 (código de calidad)
+            - **Test Coverage**: ≥80% (cobertura de tests)
+            - **Unit Tests**: Todos los tests pasando (366+ tests)
+            - **Build**: Ejecutables generados y validados
+
+            ### 📋 Información del Build
+            - **Tag**: `${{ github.ref_name }}`
+            - **Commit**: `${{ github.sha }}`
+            - **Workflow**: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            - **Arquitectura**: Clean Architecture (4 capas)
+            - **Compatibilidad**: Python 3.8+ / Linux x64 / Windows x64
+
+            ### 🔧 Uso Rápido
             ```bash
             # Linux
             chmod +x ${{ env.LINUX_EXECUTABLE }}
             ./${{ env.LINUX_EXECUTABLE }} --help
-            
+            ./${{ env.LINUX_EXECUTABLE }} -p TU_PROYECTO --dry-run
+
             # Windows
             ${{ env.WINDOWS_EXECUTABLE }} --help
+            ${{ env.WINDOWS_EXECUTABLE }} -p TU_PROYECTO --dry-run
             ```
+
+            ### 📚 Documentación
+            - [README.md](README.md): Guía de inicio rápido
+            - [DOCS.md](DOCS.md): Documentación completa del proyecto
+            - [CHANGELOG.md](CHANGELOG.md): Historial completo de cambios
           files: |
             artifacts/${{ env.LINUX_EXECUTABLE }}/${{ env.LINUX_EXECUTABLE }}
             artifacts/${{ env.WINDOWS_EXECUTABLE }}/${{ env.WINDOWS_EXECUTABLE }}

@@ -217,10 +217,119 @@ release_job:
       ./historiador -p TU_PROYECTO --dry-run
       ```
       
+      script:
+    - echo "Creating release for $CI_COMMIT_TAG"
+
+    # Validar que existe entrada en CHANGELOG.md
+    - |
+      echo "🔍 Validando entrada en CHANGELOG.md para tag: $CI_COMMIT_TAG"
+      VERSION=${CI_COMMIT_TAG#v}
+
+      # Verificar que existe la entrada en el changelog
+      if ! grep -q "^## \[$VERSION\]" CHANGELOG.md; then
+        echo "❌ ERROR: No se encontró entrada para la versión [$VERSION] en CHANGELOG.md"
+        echo ""
+        echo "📋 Acciones requeridas:"
+        echo "1. Agregar sección para la versión $VERSION en CHANGELOG.md"
+        echo "2. Seguir el formato: ## [$VERSION] - $(date +%Y-%m-%d)"
+        echo "3. Incluir categorías apropiadas (🎉 Added, 🔧 Changed, 🐛 Fixed, etc.)"
+        echo ""
+        echo "📖 Ejemplo:"
+        echo "## [$VERSION] - $(date +%Y-%m-%d)"
+        echo ""
+        echo "### 🎉 Added"
+        echo "- Nueva funcionalidad..."
+        echo ""
+        echo "### 🐛 Fixed"
+        echo "- Corrección de..."
+        echo ""
+        echo "Ver CHANGELOG.md para más ejemplos de formato."
+        echo ""
+        echo "💡 Tip: Asegúrate de que el tag $CI_COMMIT_TAG corresponde a los cambios documentados"
+        echo ""
+        echo "🚫 Release cancelado - CHANGELOG.md debe actualizarse antes de continuar"
+        exit 1
+      fi
+
+      # Verificar que hay contenido en la sección (no está vacía)
+      CHANGELOG_CONTENT=$(awk "/^## \[$VERSION\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md | sed '/^$/d')
+
+      if [ -z "$CHANGELOG_CONTENT" ]; then
+        echo "❌ ERROR: La sección [$VERSION] en CHANGELOG.md está vacía"
+        echo ""
+        echo "📋 Acción requerida:"
+        echo "- Agregar contenido descriptivo de los cambios en la versión $VERSION"
+        echo "- Usar categorías apropiadas (🎉 Added, 🔧 Changed, 🐛 Fixed, etc.)"
+        echo ""
+        echo "🚫 Release cancelado - Sección del changelog no puede estar vacía"
+        exit 1
+      fi
+
+      echo "✅ Validación exitosa: Entrada encontrada para versión [$VERSION]"
+      echo "📝 Contenido del changelog validado correctamente"
+
+    # Extraer contenido del changelog para la versión actual
+    - |
+      echo "🔍 Extracting changelog content for $CI_COMMIT_TAG..."
+      VERSION=${CI_COMMIT_TAG#v}
+
+      # Buscar contenido de la versión actual en CHANGELOG.md (ya validado que existe)
+      CHANGELOG_CONTENT=$(awk "/^## \[$VERSION\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md | sed '/^$/d')
+
+      # Escapar para YAML y guardar en variable de entorno
+      echo "$CHANGELOG_CONTENT" | sed 's/\\/\\\\/g; s/"/\\"/g; s/$/\\n/g' | tr -d '\n' > changelog_content.env
+
+      echo "📝 Changelog content extracted:"
+      cat changelog_content.env
+
+      echo ""
+      echo "📊 Estadísticas del changelog:"
+      echo "- Líneas de cambios: $(echo "$CHANGELOG_CONTENT" | wc -l)"
+      echo "- Categorías detectadas: $(echo "$CHANGELOG_CONTENT" | grep -c "^###" || echo "0")"
+
+  release:
+    tag_name: '$CI_COMMIT_TAG'
+    name: 'Historiador $CI_COMMIT_TAG'
+    description: |
+      ## 📦 Historiador $CI_COMMIT_TAG
+
+      Ejecutable CLI optimizado para importar historias de usuario desde CSV/Excel a Jira.
+
+      ### 🚀 Cambios en esta versión
+
+      $(cat changelog_content.env)
+
+      ### 📥 Descargas
+      - **Linux x64**: [historiador]($CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/historiador/$CI_COMMIT_TAG/historiador) (~51MB optimizado)
+
+      ### ✅ Quality Gates Validados
+      - **PyLint Score**: ≥8.0 (código de calidad)
+      - **Test Coverage**: ≥80% (cobertura de tests)
+      - **Unit Tests**: Todos los tests pasando (366+ tests)
+      - **Build**: Ejecutable generado y validado
+
+      ### 📋 Información del Pipeline
+      - **Tag**: `$CI_COMMIT_TAG`
+      - **Commit**: `$CI_COMMIT_SHA`
+      - **Pipeline**: [$CI_PIPELINE_ID]($CI_PIPELINE_URL)
+      - **Fecha Build**: $CI_PIPELINE_CREATED_AT
+      - **Generado por**: GitLab CI/CD
+      - **Arquitectura**: Clean Architecture (4 capas)
+      - **Compatibilidad**: Python 3.8+ / Linux x64
+
+      ### 🔧 Uso Rápido
+      ```bash
+      # Descargar y usar
+      curl -H "JOB-TOKEN: $CI_JOB_TOKEN" -L "$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/historiador/$CI_COMMIT_TAG/historiador" -o historiador
+      chmod +x historiador
+      ./historiador --help
+      ./historiador -p TU_PROYECTO --dry-run
+      ```
+
       ### 📚 Documentación
       - [README.md](README.md): Guía de inicio rápido
-      - [DOCS.md](DOCS.md): Documentación completa  
-      - [BUILD_OPTIMIZATION.md](BUILD_OPTIMIZATION.md): Detalles de optimización
+      - [DOCS.md](DOCS.md): Documentación completa del proyecto
+      - [CHANGELOG.md](CHANGELOG.md): Historial completo de cambios
     assets:
       links:
         - name: 'historiador'
