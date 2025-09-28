@@ -2,17 +2,19 @@
 # Triggers: Push a master + Merge Requests + Tags
 workflow:
   rules:
-    # Excluir cambios solo en documentación
+    # SIEMPRE ejecutar para tags (independiente de archivos modificados)
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+      when: always
+    # Excluir cambios solo en documentación para branches (NO para tags)
     - changes:
         - "**.md"
         - "docs/**"
         - ".gitignore"
         - "LICENSE"
       when: never
-    # Incluir otros casos
+    # Incluir otros casos (branches y MRs)
     - if: $CI_COMMIT_BRANCH == "master"
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
 
 stages:
   - test
@@ -231,7 +233,7 @@ release_job:
       echo "✅ Validación exitosa: Entrada encontrada para versión [$VERSION]"
       echo "📝 Contenido del changelog validado correctamente"
 
-    # Extraer contenido del changelog para la versión actual
+    # Extraer contenido del changelog y crear release description
     - |
       echo "🔍 Extracting changelog content for $CI_COMMIT_TAG..."
       VERSION=${CI_COMMIT_TAG#v}
@@ -239,28 +241,25 @@ release_job:
       # Buscar contenido de la versión actual en CHANGELOG.md (ya validado que existe)
       CHANGELOG_CONTENT=$(awk "/^## \[$VERSION\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md | sed '/^$/d')
 
-      # Escapar para YAML y guardar en variable de entorno
-      echo "$CHANGELOG_CONTENT" | sed 's/\\/\\\\/g; s/"/\\"/g; s/$/\\n/g' | tr -d '\n' > changelog_content.env
-
-      echo "📝 Changelog content extracted:"
-      cat changelog_content.env
-
-      echo ""
       echo "📊 Estadísticas del changelog:"
       echo "- Líneas de cambios: $(echo "$CHANGELOG_CONTENT" | wc -l)"
       echo "- Categorías detectadas: $(echo "$CHANGELOG_CONTENT" | grep -c "^###" || echo "0")"
 
-  release:
-    tag_name: '$CI_COMMIT_TAG'
-    name: 'Historiador $CI_COMMIT_TAG'
-    description: |
+      # Crear la descripción completa del release
+      cat > release_description.md << 'EOF'
       ## 📦 Historiador $CI_COMMIT_TAG
 
       Ejecutable CLI optimizado para importar historias de usuario desde CSV/Excel a Jira.
 
       ### 🚀 Cambios en esta versión
 
-      $(cat changelog_content.env)
+      EOF
+
+      # Agregar el contenido del changelog
+      echo "$CHANGELOG_CONTENT" >> release_description.md
+
+      # Agregar el resto de la descripción
+      cat >> release_description.md << 'EOF'
 
       ### 📥 Descargas
       - **Linux x64**: [historiador]($CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/historiador/$CI_COMMIT_TAG/historiador) (~51MB optimizado)
@@ -293,6 +292,15 @@ release_job:
       - [README.md](README.md): Guía de inicio rápido
       - [DOCS.md](DOCS.md): Documentación completa del proyecto
       - [CHANGELOG.md](CHANGELOG.md): Historial completo de cambios
+      EOF
+
+      echo "📝 Release description created:"
+      cat release_description.md
+
+  release:
+    tag_name: '$CI_COMMIT_TAG'
+    name: 'Historiador $CI_COMMIT_TAG'
+    description_path: 'release_description.md'
     assets:
       links:
         - name: 'historiador'

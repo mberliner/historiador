@@ -276,15 +276,13 @@ jobs:
           # Buscar contenido de la versión actual en CHANGELOG.md (ya validado que existe)
           CHANGELOG_CONTENT=$(awk "/^## \[$VERSION\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md | sed '/^$/d')
 
-          # Guardar en archivo temporal para el release
-          cat > changelog_content.txt << 'EOF'
-          $CHANGELOG_CONTENT
-          EOF
-
-          # Expandir variables en el contenido
-          eval "cat > changelog_final.txt << 'EOL'
-          $(cat changelog_content.txt)
-          EOL"
+          # Guardar el contenido del changelog en una variable de salida de GitHub Actions
+          # Usar EOF delimiter para manejar contenido multilínea
+          {
+            echo 'changelog_content<<EOF'
+            echo "$CHANGELOG_CONTENT"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
 
           echo "📊 Estadísticas del changelog:"
           echo "- Líneas de cambios: $(echo "$CHANGELOG_CONTENT" | wc -l)"
@@ -305,7 +303,7 @@ jobs:
 
             ### 🚀 Cambios en esta versión
 
-            $(cat changelog_final.txt)
+            ${{ steps.changelog.outputs.changelog_content }}
 
             ### 📥 Descargas
             - **Linux x64**: `${{ env.LINUX_EXECUTABLE }}` (~51MB optimizado)
