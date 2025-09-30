@@ -2,7 +2,7 @@
 
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class UserStory(BaseModel):
@@ -28,8 +28,9 @@ class UserStory(BaseModel):
         default=None, description="Key del Epic o Feature padre"
     )
 
-    @validator("criterio_aceptacion", pre=True)
-    def parse_criterio_aceptacion(cls, v):  # pylint: disable=no-self-argument
+    @field_validator("criterio_aceptacion", mode="before")
+    @classmethod
+    def parse_criterio_aceptacion(cls, v):
         """Procesa el campo criterio_aceptacion dividiéndolo por ; y \\n.
 
         Args:
@@ -51,8 +52,9 @@ class UserStory(BaseModel):
             return criterios if criterios else None
         return v
 
-    @validator("subtareas", pre=True)
-    def parse_subtareas(cls, v):  # pylint: disable=no-self-argument
+    @field_validator("subtareas", mode="before")
+    @classmethod
+    def parse_subtareas(cls, v):
         """Procesa el campo subtareas dividiéndolo por ; y \n.
 
         Args:

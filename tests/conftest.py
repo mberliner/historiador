@@ -30,7 +30,7 @@ def sample_settings(temp_dir):
     """Create sample settings for testing."""
     return Settings(
         jira_url="https://test.atlassian.net",
-        jira_email="test@example.com", 
+        jira_email="test@example.com",
         jira_api_token="test-token",
         project_key="TEST",
         default_issue_type="Story",
@@ -42,7 +42,8 @@ def sample_settings(temp_dir):
         processed_directory=str(temp_dir / "procesados"),
         rollback_on_subtask_failure=False,
         acceptance_criteria_field=None,
-        feature_required_fields=None
+        feature_required_fields=None,
+        _env_file=None  # Disable .env loading in tests (Pydantic v2)
     )
 
 
